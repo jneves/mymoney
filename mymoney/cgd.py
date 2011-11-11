@@ -11,10 +11,14 @@ import logging
 import re
 import os
 
+from datetime import date, timedelta
+
 CXDO_VERSION= "v56_8_0_WS_v5_123_1"
 LOGINSTARTPAGE= "https://caixadirecta.cgd.pt/CaixaDirecta/loginStart.do"
 LOGINPAGE= "https://caixadirecta.cgd.pt/CaixaDirecta/login.do"
 MAINPAGE= "https://caixadirecta.cgd.pt/CaixaDirecta/profile.do"
+ACCOUNTINDEX="https://caixadirecta.cgd.pt/CaixaDirecta/accountInfo.do"
+STATEMENT="https://caixadirecta.cgd.pt/CaixaDirecta/statement.do"
 
 class RedirectedException( Exception ):
     pass
@@ -94,7 +98,6 @@ class CGDCaixaDirecta(Bank):
             raise AuthenticationException("Could not authenticate with given data")
 
     def get_account_list(self):
-        ACCOUNTINDEX="https://caixadirecta.cgd.pt/CaixaDirecta/accountInfo.do"
         html = self.get_page(ACCOUNTINDEX)
         soup = BeautifulSoup(html)
         select = soup.find('select', id='accountIndex')
@@ -103,8 +106,53 @@ class CGDCaixaDirecta(Bank):
             res.append((option['value'], option.string))
         return res
 
+    def get_account(self, number=0):
+        return CGDCDAccount(number, self)
+
 class CGDCDAccount(Account):
-    pass
+    def __init__(self, number, bank):
+        self.number = number
+        self.bank = bank
+        self.set_account()        
+
+    def set_account(self):
+        self.html = self.bank.get_page(ACCOUNTINDEX, {"accountIndex": self.number, "changeActiveAccount" : 1})
+
+    def get_information(self):
+        self.set_account()
+        soup = BeautifulSoup(self.html)
+        l = soup.find('form', id='accountInfoForm').findAll('tr')
+        return { "currency": l[0].findAll('td')[1].string,
+                 "type": l[1].findAll('td')[1].string,
+                 "nib": l[2].findAll('td')[1].string,
+                 "iban": l[4].findAll('td')[1].string,
+                 "swift": l[5].findAll('td')[1].string,
+                 "accounting": l[8].findAll('td')[1].string,
+                 "available": l[8].findAll('td')[3].string
+                 }
+
+    def get_balance(self):
+        self.set_account()
+        soup = BeautifulSoup(self.html)
+        l = soup.find('form', id='accountInfoForm').findAll('tr')
+        return l[8].findAll('td')[3].string
+
+    def get_movements(self, start_date=(date.today()-timedelta(weeks=1)), end_date=date.today, limit=100):
+        self.set_account()
+        soup = BeautifulSoup(self.bank.get_page(STATEMENT))
+        l = soup.find('div', id='globalStatementAjaxDiv').findAll('tr')
+        l = l[1:]
+        res = []
+        for line in l:
+            res_inner = []
+            for cell in line.findAll('td'):
+                if cell.string:
+                    res_inner.append(cell.string.strip())
+                elif cell.a:
+                    if cell.a.string:
+                        res_inner.append(cell.a.string.strip())
+            res.append(res_inner)
+        return res
 
 class CGDCaixaBanking(Bank):
     pass
