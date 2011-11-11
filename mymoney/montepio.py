@@ -16,6 +16,18 @@ PINLOGINPAGE = "https://net24.montepio.pt/Net24-Web/func/VLNP/1197592006-1196197
 BASEDOMAIN = "https://net24.montepio.pt"
 
 class MontepioNet24(Bank):
+    def login(self):
+        self.start(self.info["user"], self.info["pass"], "montepio_cookie.txt")
+        self.save_session()
+
+    def start(self, user, password, cookie_file=None):
+        if cookie_file:
+            self.cookie_file= cookie_file
+            self.load_session(os.path.isfile(cookie_file))
+            if not self.is_authenticated():
+                logging.info("saved cookie session has expired")
+                self.authenticate(user, password)
+
     def authenticate(self, user, password):
         # POST user
         self.cookiejar= cookielib.LWPCookieJar( )
@@ -52,8 +64,6 @@ class MontepioNet24(Bank):
 
         #print repr( [ pass_translit, password, new_pass] )
 
-        #time.sleep(10)
-
         # POST pin
         values = {
             'pin1_IN' : new_pass,
@@ -68,5 +78,20 @@ class MontepioNet24(Bank):
         f = self.opener.open( url, data=data )
         res2 = f.read()
         #print repr( f.info().headers )
-        print res2 
+        #print res2 
 
+    def load_session(self, file_present=True):
+        logging.debug("loading cookie from file")
+        self.cookiejar= cookielib.LWPCookieJar( )
+        #if file_present:
+        #    self.cookiejar.load( filename= self.cookie_file, ignore_discard=True)
+        self.opener= urllib2.build_opener( urllib2.HTTPCookieProcessor(self.cookiejar) )
+
+    def save_session(self):
+        logging.debug("saving cookie to file")
+        if self.cookie_file is None:
+            raise Exception("Cookie filename was not specified on construction")
+        self.cookiejar.save( filename= self.cookie_file, ignore_discard=True)
+
+    def is_authenticated(self):
+        return True
