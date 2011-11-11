@@ -1,7 +1,7 @@
 class Bank:
     def __init__(self, info):
-        self.__info == info
-        return self.login()
+        self.info = info
+        self.login()
 
     def login(self):
         pass
