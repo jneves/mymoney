@@ -14,7 +14,7 @@ Build an API that applications can use to access bank account information. Imple
 API
 ---
 
-* access = Bank.login(info)
+* access = Bank(info)
 * access.get_account_list()
 * account.get_account_information()
 * account.get_account_balance()
