@@ -9,6 +9,7 @@ import cookielib
 import logging
 import re
 import os
+import time
 
 USERLOGINPAGE = "https://net24.montepio.pt/Net24-Web/func/acesso/net24pLoginTV.jsp"
 PINLOGINPAGE = "https://net24.montepio.pt/Net24-Web/func/VLNP/1197592006-1196197144.jsp"
@@ -51,13 +52,21 @@ class MontepioNet24(Bank):
 
         #print repr( [ pass_translit, password, new_pass] )
 
+        #time.sleep(10)
+
         # POST pin
         values = {
-            'pin_IN' : new_pass,
+            'pin1_IN' : new_pass,
         }
         data = urllib.urlencode(values)
+        self.opener.addheaders = (
+                ('User-agent','Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/535.7 (KHTML, like Gecko) Chrome/16.0.912.21 Safari/535.7'),
+                ('Referer','https://net24.montepio.pt/Net24-Web/func/acesso/net24pLoginTV.jsp'),
+                ('Origin', 'https://net24.montepio.pt'),
+            )
+        #print repr( self.opener.addheaders )
         f = self.opener.open( url, data=data )
         res2 = f.read()
-
+        #print repr( f.info().headers )
         print res2 
 
