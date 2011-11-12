@@ -120,3 +120,22 @@ class MontepioNet24(Bank):
             contas_info.append( ( conta_id, ' - '.join(conta) ) )
         return contas_info
 
+    def get_account(self, number=0):
+        return MontepioN24Account(number, self)
+
+class MontepioN24Account(Account):
+    def __init__(self, number, bank):
+        self.number = number
+        self.bank = bank
+
+    def get_information(self):
+        url = "https://net24.montepio.pt/Net24-Web/func/contasordem/consultaNIBIBAN.jsp"
+        html = self.bank.get_page( url , parameters={ 'selCtaOrdem' : self.number } )
+        #info = re.findall( r"txtCampo.*?>(.*?):<.*?>.*?<.*?txtLabel.*?>(.*?)<", html, re.M)
+        info = re.findall( r"txtCampo.*?>(.*?):<.*?>.*?<.*?txtLabel.*?>(.*?)<", html, re.M + re.DOTALL)
+        return info
+
+
+
+
+
