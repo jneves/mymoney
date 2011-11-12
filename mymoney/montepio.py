@@ -110,9 +110,13 @@ class MontepioNet24(Bank):
             conta_id = "%.3d" % i
             select = soup.find('tr', { 'id' : "c" + conta_id } );
             conta = []
-            for td in select.findAll( 'td', { 'class' : 'tdClass1'} ):
-                content = re.findall(r">([^<>\n]+?)<", repr(td))
-                conta.append(content[0])
+            if select:
+                for td in select.findAll( 'td', { 'class' : 'tdClass1'} ):
+                    if td.a:
+                        content = td.a.string
+                    else:
+                        content = td.string
+                    conta.append(content)
             contas_info.append( ( conta_id, ' - '.join(conta) ) )
         return contas_info
 
