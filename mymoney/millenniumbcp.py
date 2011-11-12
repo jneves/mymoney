@@ -13,12 +13,11 @@ import os
 
 from datetime import date, timedelta
 
-CXDO_VERSION= "v56_8_0_WS_v5_123_1"
-LOGINSTARTPAGE= "https://caixadirecta.cgd.pt/CaixaDirecta/loginStart.do"
-LOGINPAGE= "https://caixadirecta.cgd.pt/CaixaDirecta/login.do"
-MAINPAGE= "https://caixadirecta.cgd.pt/CaixaDirecta/profile.do"
-ACCOUNTINDEX="https://caixadirecta.cgd.pt/CaixaDirecta/accountInfo.do"
-STATEMENT="https://caixadirecta.cgd.pt/CaixaDirecta/statement.do"
+LOGINSTARTPAGE= "https://www.millenniumbcp.pt/secure/pt/90/9021_1.jhtml"
+LOGINPAGE= "https://www.millenniumbcp.pt/secure/pt/90/9021_2.jhtml?_DARGS=/secure/pt/90/9021_2.jhtml"
+MAINPAGE= "https://www.millenniumbcp.pt/secure/10/1098_1.jhtml"
+ACCOUNTINDEX="https://www.millenniumbcp.pt/secure/10/1020_1.jhtml"
+STATEMENT=""
 
 class RedirectedException( Exception ):
     pass
@@ -30,9 +29,7 @@ def post_request(url, values):
     req = urllib2.Request(url, data)
     return urllib2.urlopen(req)
 
-class CGDCaixaDirecta(Bank):
-    name = "CGD"
-
+class BCP(Bank):
     def login(self):
         self.start(self.info["user"], self.info["pass"], "cookie.txt")
         self.save_session()
@@ -41,9 +38,7 @@ class CGDCaixaDirecta(Bank):
         if cookie_file:
             self.cookie_file= cookie_file
             self.load_session(os.path.isfile(cookie_file))
-            if not self.is_authenticated():
-                logging.info("saved cookie session has expired")
-                self.authenticate(user, password)
+            self.authenticate(user, password)
 
     def get_page(self, url, parameters={}, allow_redirects=False):
         d= urllib.urlencode(parameters)
@@ -72,29 +67,26 @@ class CGDCaixaDirecta(Bank):
         try:
             html= self.get_page(MAINPAGE)
             return True
-        except RedirectedException:
+        except RedirectedException as e:
+            print e
             return False
 
     def authenticate(self, user, password):
         logging.debug("authenticating...")
 
-        def valid_parameter(parameter):
-            ''' all char in user and passwd must be integers
-            '''
-            if not isinstance(parameter, str):
-                parameter = str(parameter)
-            for char in parameter:
-                try:
-                    int(char)
-                except ValueError:
-                    logging.error('invalid authentication parameter')
-                    return False
-            return True
-
-        if valid_parameter(user) and valid_parameter(password):
-            l1_html= self.get_page( LOGINSTARTPAGE, {"USERNAME": user} ) #needed to set
-            auth_data= cxdo_auth.parameters(l1_html, user,password)
-            l2_html= self.get_page( LOGINPAGE, auth_data, allow_redirects=True)
+        html = self.get_page( LOGINSTARTPAGE, {"mlUsr": user}, True ) #needed to set
+        print html
+        # extract positions
+        soup = BeautifulSoup(html)
+        row = soup.find('tr', id="trid_1")
+        chars = []
+        for each in row.findAll('strong'):
+            chars.append(each.string[0])
+        print chars
+        print self.info["pass"][int(chars[0])-1]
+        print self.info["pass"][int(chars[1])-1]
+        print self.info["pass"][int(chars[2])-1]
+        html = self.get_page(LOGINPAGE, {"onlyPwd":1, "_D:login":" ", "loginAux": self.info["user"], "_D:loginAux":" ", "dig1": self.info["pass"][int(chars[0])-1], "_D:dig1": " ", "dig2": self.info["pass"][int(chars[1])-1], "_D:dig2":" ", "dig3": self.info["pass"][int(chars[2])-1], "_D:dig3": " ","/bcp/cidadebcp/90/F9021_Login.submit2": "", "_D:/bcp/cidadebcp/90/F9021_Login.submit2": " ","x": 47, "y": 11}, True)
 
         if not self.is_authenticated():
             raise AuthenticationException("Could not authenticate with given data")
@@ -102,16 +94,16 @@ class CGDCaixaDirecta(Bank):
     def get_account_list(self):
         html = self.get_page(ACCOUNTINDEX)
         soup = BeautifulSoup(html)
-        select = soup.find('select', id='accountIndex')
+        select = soup.find('table', id='accountTable')
         res = []
-        for option in select.findAll('option'):
-            res.append((option['value'], option.string))
+        for option in select.findAll('tr'):
+            res.append((option.td[0]['value'], option.td[2].string))
         return res
 
     def get_account(self, number=0):
         return CGDCDAccount(number, self)
 
-class CGDCDAccount(Account):
+class BCPAccount(Account):
     def __init__(self, number, bank):
         self.number = number
         self.bank = bank
@@ -124,33 +116,20 @@ class CGDCDAccount(Account):
         self.set_account()
         soup = BeautifulSoup(self.html)
         l = soup.find('form', id='accountInfoForm').findAll('tr')
-        if l[1].findAll('td')[0].string == "Tipo de conta":
-            return { "currency": l[0].findAll('td')[1].string,
-                     "type": l[1].findAll('td')[1].string,
-                     "nib": l[2].findAll('td')[1].string,
-                     "iban": l[4].findAll('td')[1].string,
-                     "swift": l[5].findAll('td')[1].string,
-                     "accounting": l[8].findAll('td')[1].string,
-                     "available": l[8].findAll('td')[3].string
-                     }
-        else:
-            return { "currency": l[0].findAll('td')[1].string,
-                     "nib": l[1].findAll('td')[1].string,
-                     "iban": l[3].findAll('td')[1].string,
-                     "swift": l[4].findAll('td')[1].string,
-                     "accounting": l[7].findAll('td')[1].string,
-                     "available": l[7].findAll('td')[3].string
-                     }
-
+        return { "currency": l[0].findAll('td')[1].string,
+                 "type": l[1].findAll('td')[1].string,
+                 "nib": l[2].findAll('td')[1].string,
+                 "iban": l[4].findAll('td')[1].string,
+                 "swift": l[5].findAll('td')[1].string,
+                 "accounting": l[8].findAll('td')[1].string,
+                 "available": l[8].findAll('td')[3].string
+                 }
 
     def get_balance(self):
         self.set_account()
         soup = BeautifulSoup(self.html)
         l = soup.find('form', id='accountInfoForm').findAll('tr')
-        if l[1].findAll('td')[0].string == "Tipo de conta":
-            return l[8].findAll('td')[3].string
-        else:
-            return l[7].findAll('td')[3].string            
+        return l[8].findAll('td')[3].string
 
     def get_movements(self, start_date=(date.today()-timedelta(weeks=1)), end_date=date.today, limit=100):
         self.set_account()
@@ -164,8 +143,6 @@ class CGDCDAccount(Account):
                 if cell.string:
                     res_inner.append(cell.string.strip())
                 elif cell.a:
-                    # transaction id
-                    res_inner.append(re.findall("\d+",cell.a["onclick"])[0])
                     if cell.a.string:
                         res_inner.append(cell.a.string.strip())
             res.append(res_inner)
