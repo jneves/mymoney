@@ -29,7 +29,6 @@ class BankShell(cmd.Cmd):
 
     def do_montepio(self, line):
         "Adicionar um acesso ao Montepio."
-        print "Insira o seu código de acesso:"
         password = getpass.getpass("Insira o seu código de acesso: ")
         bank = mymoney.MontepioNet24({"user": line, "pass": password})
         try:
@@ -39,8 +38,8 @@ class BankShell(cmd.Cmd):
                 self.accounts["%s-%s" % (account.bank.name, acc[0])] = account
                 self.account_names["%s-%s" % (account.bank.name, acc[0])] = acc[1]
             self.banks.append(bank)
-        except:
-            pass
+        except Exception, e:
+            print e
 
     def do_listar(self, line):
         "Listar contas."
@@ -70,11 +69,11 @@ class BankShell(cmd.Cmd):
     def do_saldo(self, line):
         "Obter saldo de uma conta, ou de todas."
         if line:
-            print "€ %.02f" % float(self.accounts[line].get_balance().replace(",","."))
+            print "€ %.02f" % float(self.accounts[line].get_balance().replace(".","").replace(",","."))
         else:
             total = 0
             for account in self.accounts.values():
-                total += float(account.get_balance().replace(",","."))
+                total += float(account.get_balance().replace(".","").replace(",","."))
             print "€ %.02f" % total
 
     def do_mostrar(self, line):
