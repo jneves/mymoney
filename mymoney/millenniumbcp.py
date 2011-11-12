@@ -96,8 +96,12 @@ class BCP(Bank):
         soup = BeautifulSoup(html)
         select = soup.find('table', id='accountTable')
         res = []
-        for option in select.findAll('tr'):
-            res.append((option.td[0]['value'], option.td[2].string))
+        for option in select.findAll('tr')[1:]:
+            tds = option.findAll('td')
+
+            id = tds[0].input['value']
+            desc = tds[2].string.replace('&nbsp;', '')
+            res.append((id,desc))
         return res
 
     def get_account(self, number=0):
