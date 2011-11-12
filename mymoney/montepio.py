@@ -157,7 +157,7 @@ class MontepioN24Account(Account):
         info = re.findall( r"txtLabel.*?>(.*?)<.*?>.*?<.*?txtCampo.*?>(.*?)<", html, re.M + re.DOTALL)
         return info[9][1]
 
-    def get_movements(self, start_date=(date.today()-timedelta(weeks=12)), end_date=date.today(), limit=100):
+    def get_movements(self, start_date=(date.today()-timedelta(weeks=1)), end_date=date.today(), limit=100):
         url = "https://net24.montepio.pt/Net24-Web/func/contasordem/ctaOrdemMovimentos.jsp?selectedNode=104"
         self.bank.get_page(url)
         url = "https://net24.montepio.pt/Net24-Web/func/contasordem/ctaOrdemMovimentosCriterios.jsp"
