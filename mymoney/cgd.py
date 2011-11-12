@@ -162,6 +162,8 @@ class CGDCDAccount(Account):
                 if cell.string:
                     res_inner.append(cell.string.strip())
                 elif cell.a:
+                    # transaction id
+                    res_inner.append(re.findall("\d+",cell.a["onclick"])[0])
                     if cell.a.string:
                         res_inner.append(cell.a.string.strip())
             res.append(res_inner)
