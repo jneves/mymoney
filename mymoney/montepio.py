@@ -131,7 +131,8 @@ class MontepioN24Account(Account):
     def get_information(self):
         url = "https://net24.montepio.pt/Net24-Web/func/contasordem/consultaNIBIBAN.jsp"
         html = self.bank.get_page( url , parameters={ 'selCtaOrdem' : self.number } )
-        info = re.findall( r"<td class=\"txtCampo\" nowrap=\"nowrap\">.*?:</td>.*?<td class=\"txtLabel\">.*?</td>", html)
+        #info = re.findall( r"txtCampo.*?>(.*?):<.*?>.*?<.*?txtLabel.*?>(.*?)<", html, re.M)
+        info = re.findall( r"txtCampo.*?>(.*?):<.*?>.*?<.*?txtLabel.*?>(.*?)<", html, re.M + re.DOTALL)
         return info
 
 
