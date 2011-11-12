@@ -155,7 +155,7 @@ class MontepioN24Account(Account):
         }
         html = self.bank.get_page( url, parameters=parameters )
         info = re.findall( r"txtLabel.*?>(.*?)<.*?>.*?<.*?txtCampo.*?>(.*?)<", html, re.M + re.DOTALL)
-        return info
+        return info[9][1]
 
     def get_movements(self, start_date=(date.today()-timedelta(weeks=12)), end_date=date.today(), limit=100):
         url = "https://net24.montepio.pt/Net24-Web/func/contasordem/ctaOrdemMovimentos.jsp?selectedNode=104"
@@ -201,5 +201,9 @@ class MontepioN24Account(Account):
         for x in  re.finditer( 
                 r"<td class=\"tdClass.*?>(.*?)</td>.*?<td class=\"tdClass.*?>(.*?)</td>.*?<td class=\"tdClass.*?><a.*?'(\d+?)'\);.*?>(.*?)</a></td>.*?<td class=\"tdClass.*?>(.*?)</td>.*?<td class=\"tdClass.*?>(.*?)</td>", 
                 html, re.M + re.I + re.DOTALL):
-            info.append((x.group(3),x.group(1),x.group(2),x.group(4),x.group(5),x.group(6)))
+            #info.append((x.group(3),x.group(1),x.group(2),x.group(4),x.group(5),x.group(6)))
+            info.append((x.group(2),x.group(3),x.group(4),
+                    x.group(5).startswith('-') and x.group(5).replace('-','') or "",
+                    not x.group(5).startswith('-') and x.group(5) or "",
+                    x.group(6)))
         return info
