@@ -31,6 +31,8 @@ def post_request(url, values):
     return urllib2.urlopen(req)
 
 class CGDCaixaDirecta(Bank):
+    name = "CGD"
+
     def login(self):
         self.start(self.info["user"], self.info["pass"], "cookie.txt")
         self.save_session()
