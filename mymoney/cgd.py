@@ -122,7 +122,7 @@ class CGDCDAccount(Account):
         self.set_account()
         soup = BeautifulSoup(self.html)
         l = soup.find('form', id='accountInfoForm').findAll('tr')
-        if l[1].findAll('td')[0].string == "Tipo de Conta":
+        if l[1].findAll('td')[0].string == "Tipo de conta":
             return { "currency": l[0].findAll('td')[1].string,
                      "type": l[1].findAll('td')[1].string,
                      "nib": l[2].findAll('td')[1].string,
@@ -145,7 +145,7 @@ class CGDCDAccount(Account):
         self.set_account()
         soup = BeautifulSoup(self.html)
         l = soup.find('form', id='accountInfoForm').findAll('tr')
-        if l[1].findAll('td')[0].string == "Tipo de Conta":
+        if l[1].findAll('td')[0].string == "Tipo de conta":
             return l[8].findAll('td')[3].string
         else:
             return l[7].findAll('td')[3].string            
