@@ -131,10 +131,22 @@ class MontepioN24Account(Account):
     def get_information(self):
         url = "https://net24.montepio.pt/Net24-Web/func/contasordem/consultaNIBIBAN.jsp"
         html = self.bank.get_page( url , parameters={ 'selCtaOrdem' : self.number } )
-        #info = re.findall( r"txtCampo.*?>(.*?):<.*?>.*?<.*?txtLabel.*?>(.*?)<", html, re.M)
         info = re.findall( r"txtCampo.*?>(.*?):<.*?>.*?<.*?txtLabel.*?>(.*?)<", html, re.M + re.DOTALL)
         return info
 
+    def get_balance(self):
+        url = "https://net24.montepio.pt/Net24-Web/func/contasordem/ctaOrdemSaldos.jsp?selectedNode=103"
+        self.bank.get_page(url)
+        url = "https://net24.montepio.pt/Net24-Web/func/contasordem/ctaOrdemSaldosResultado.jsp"
+        parameters = {
+                'numCtaOrdem' : '008100080905',
+                'descproduto_IN' : 'M ESP. JOVEM',
+                'selCtaOrdem' : '008100080905||M ESP. JOVEM', 
+        }
+        self.bank.opener.addheaders = (('Referer', 'https://net24.montepio.pt/Net24-Web/func/contasordem/ctaOrdemSaldos.jsp?selectedNode=103'),)
+        html = self.bank.get_page( url, parameters=parameters )
+        info = re.findall( r"txtLabel.*?>(.*?)<.*?>.*?<.*?txtCampo.*?>(.*?)<", html, re.M + re.DOTALL)
+        return info
 
 
 
