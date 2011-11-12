@@ -9,7 +9,7 @@ import cookielib
 import logging
 import re
 import os
-import time
+from datetime import date, timedelta
 
 USERLOGINPAGE = "https://net24.montepio.pt/Net24-Web/func/acesso/net24pLoginTV.jsp"
 BASEDOMAIN = "https://net24.montepio.pt"
@@ -22,6 +22,8 @@ class AuthenticationException( Exception):
     pass
 
 class MontepioNet24(Bank):
+    name = "Montepio"
+
     def login(self):
         logging.info("Loging in")
         self.start(self.info["user"], self.info["pass"], "montepio_cookie.txt")
@@ -127,7 +129,13 @@ class MontepioN24Account(Account):
     def __init__(self, number, bank):
         self.number = number
         self.bank = bank
+        self.info = self.get_order()
 
+    def get_order(self, small=False):
+        info = self.get_information()[0][1]
+        order = info.partition(' ')
+        return (order[0], order[2] ) 
+        
     def get_information(self):
         url = "https://net24.montepio.pt/Net24-Web/func/contasordem/consultaNIBIBAN.jsp"
         html = self.bank.get_page( url , parameters={ 'selCtaOrdem' : self.number } )
@@ -136,18 +144,62 @@ class MontepioN24Account(Account):
 
     def get_balance(self):
         url = "https://net24.montepio.pt/Net24-Web/func/contasordem/ctaOrdemSaldos.jsp?selectedNode=103"
+        self.bank.opener.addheaders = (('Referer', 'https://net24.montepio.pt/Net24-Web/func/contasordem/ctaOrdemSaldos.jsp?selectedNode=103'),)
         self.bank.get_page(url)
+
         url = "https://net24.montepio.pt/Net24-Web/func/contasordem/ctaOrdemSaldosResultado.jsp"
         parameters = {
-                'numCtaOrdem' : '008100080905',
-                'descproduto_IN' : 'M ESP. JOVEM',
-                'selCtaOrdem' : '008100080905||M ESP. JOVEM', 
+                'numCtaOrdem' : self.info[0].replace('.','').replace('-',''), 
+                'descproduto_IN' : self.info[1], 
+                'selCtaOrdem' : "%s||%s" % (self.info[0].replace('.','').replace('-',''), self.info[1] ), 
         }
-        self.bank.opener.addheaders = (('Referer', 'https://net24.montepio.pt/Net24-Web/func/contasordem/ctaOrdemSaldos.jsp?selectedNode=103'),)
         html = self.bank.get_page( url, parameters=parameters )
         info = re.findall( r"txtLabel.*?>(.*?)<.*?>.*?<.*?txtCampo.*?>(.*?)<", html, re.M + re.DOTALL)
         return info
 
-
-
-
+    def get_movements(self, start_date=(date.today()-timedelta(weeks=12)), end_date=date.today(), limit=100):
+        url = "https://net24.montepio.pt/Net24-Web/func/contasordem/ctaOrdemMovimentos.jsp?selectedNode=104"
+        self.bank.get_page(url)
+        url = "https://net24.montepio.pt/Net24-Web/func/contasordem/ctaOrdemMovimentosCriterios.jsp"
+        parameters = {
+            'numCtaOrdem' : self.info[0].replace('.','').replace('-',''),
+            'descproduto_IN' : self.info[1],
+            'tipoPesquisa' : '',
+            'seleccaoConta' : "%s|%s %s||%s" % (
+                    self.info[0].replace('.','').replace('-',''),
+                    self.info[0],
+                    self.info[1],
+                    self.info[1],
+                ) ,
+                }
+        self.bank.get_page(url, parameters=parameters )
+        url = "https://net24.montepio.pt/Net24-Web/func/contasordem/ctaOrdemMovimentosNRegistos.jsp"
+        parameters = {
+            'ddiactf_IN': "%d%02d%02d" % ( end_date.year, end_date.month, end_date.day),
+            'ddiact_IN': "%d%02d%02d" % ( start_date.year, start_date.month, start_date.day),
+            'descricaoTipoOperacao' : '',
+            'tipoPesquisa' : 'pesquisa',
+            'destino' : 'ctaOrdemMovimentosResultadoDC57.jsp',
+            'numCtaOrdem' : self.info[0].replace('.','').replace('-',''),
+            'descproduto_IN' : self.info[1],
+            'tipoMovimento' : '',
+            'seleccaoConta' : "%s|%s %s||%s" % (
+                    self.info[0].replace('.','').replace('-',''),
+                    self.info[0],
+                    self.info[1],
+                    self.info[1],
+                ) ,
+            'tipos':'T|Todos',
+            'tipoOperacao' : '',
+            'selMinImp' : 'D',
+            'importMinima' : '',
+            'selMaxImp' : 'C',
+            'importMaxima' : '',
+            }
+        html = self.bank.get_page(url, parameters=parameters )
+        info = []
+        for x in  re.finditer( 
+                r"<td class=\"tdClass.*?>(.*?)</td>.*?<td class=\"tdClass.*?>(.*?)</td>.*?<td class=\"tdClass.*?><a.*?'(\d+?)'\);.*?>(.*?)</a></td>.*?<td class=\"tdClass.*?>(.*?)</td>.*?<td class=\"tdClass.*?>(.*?)</td>", 
+                html, re.M + re.I + re.DOTALL):
+            info.append((x.group(3),x.group(1),x.group(2),x.group(4),x.group(5),x.group(6)))
+        return info
