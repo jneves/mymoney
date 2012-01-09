@@ -27,6 +27,20 @@ class BankShell(cmd.Cmd):
         except Exception, e:
             print e
 
+    def do_bpi(self, line):
+        "Adicionar um acesso ao BPI."
+        password = getpass.getpass("Insira o seu código de acesso: ")
+        bank = mymoney.BPINet({"user": line, "pass": password})
+        try:
+            accounts = bank.get_account_list()
+            for acc in accounts:
+                account = bank.get_account(acc[0])
+                self.accounts["%s-%s" % (account.bank.name, acc[0])] = account
+                self.account_names["%s-%s" % (account.bank.name, acc[0])] = acc[1]
+            self.banks.append(bank)
+        except Exception, e:
+            print e
+
     def do_montepio(self, line):
         "Adicionar um acesso ao Montepio."
         password = getpass.getpass("Insira o seu código de acesso: ")
