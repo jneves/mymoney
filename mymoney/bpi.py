@@ -124,12 +124,16 @@ class BPINetAccount(Account):
 
     def get_movements(self, start_date=(date.today()-timedelta(weeks=1)), end_date=date.today, limit=100):
         # todo: add date parameters and get all pages
+        print "get_movements"
         soup = BeautifulSoup(self.bank.get_page(STATEMENT,{},True)) # todo: add date parameters
         table = soup.findAll('table',limit=6)[5]
+        lines = table.findAll('tr')
         res = []
-        for line in table:
+        for line in lines:
+            columns = line.findAll('td')
             res_inner = []
-                #todo: parse the table
-            res.append(res_inner)
+            for col in columns:
+                res_inner.append(col.string.strip())
+                res.append(res_inner)
         return res
 
