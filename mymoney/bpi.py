@@ -2,6 +2,7 @@
 
 from bank import Bank
 from account import Account
+from transaction import Transaction
 
 import urllib, urllib2
 from BeautifulSoup import BeautifulSoup
@@ -10,7 +11,7 @@ import logging
 import re
 import os
 
-from datetime import date, timedelta
+from datetime import datetime,date,timedelta
 
 
 #LOGINSTARTPAGE= "https://caixadirecta.cgd.pt/CaixaDirecta/loginStart.do"
@@ -124,16 +125,27 @@ class BPINetAccount(Account):
 
     def get_movements(self, start_date=(date.today()-timedelta(weeks=1)), end_date=date.today, limit=100):
         # todo: add date parameters and get all pages
-        print "get_movements"
         soup = BeautifulSoup(self.bank.get_page(STATEMENT,{},True)) # todo: add date parameters
         table = soup.findAll('table',limit=6)[5]
         lines = table.findAll('tr')
-        res = []
+        transactions = []
         for line in lines:
             columns = line.findAll('td')
             res_inner = []
             for col in columns:
                 res_inner.append(col.string.strip())
-                res.append(res_inner)
-        return res
+            if res_inner[0] != "Data Mov.": #skipping title line
+                transaction = BPITransaction(res_inner[0],res_inner[1],res_inner[2],res_inner[3])
+                transactions.append(transaction)   
+        return transactions
+
+class BPITransaction(Transaction):
+    def parse_date(self,value):
+        try:
+            # we're expecting BPINet date format like this '%Y-%m-%d'
+            # validating and creating a read date object
+            valid_date = datetime.strptime(value, '%d-%m-%Y')
+            return date(valid_date.year,valid_date.month,valid_date.day)
+        except ValueError:
+            return None
 
