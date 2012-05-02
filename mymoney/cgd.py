@@ -14,7 +14,7 @@ import os
 from datetime import date, timedelta
 
 CXDO_VERSION= "v56_8_0_WS_v5_123_1"
-LOGINSTARTPAGE= "https://caixadirecta.cgd.pt/CaixaDirecta/loginStart.do"
+LOGINSTARTPAGE= "https://caixadirecta.cgd.pt/CaixaDirecta/login.do"
 LOGINPAGE= "https://caixadirecta.cgd.pt/CaixaDirecta/login.do"
 MAINPAGE= "https://caixadirecta.cgd.pt/CaixaDirecta/profile.do"
 ACCOUNTINDEX="https://caixadirecta.cgd.pt/CaixaDirecta/accountInfo.do"
