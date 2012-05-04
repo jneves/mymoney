@@ -8,23 +8,18 @@ import urllib, urllib2
 from BeautifulSoup import BeautifulSoup
 import cookielib
 import logging
-import re
 import os
 
 from datetime import datetime,date,timedelta
 
 
-#LOGINSTARTPAGE= "https://caixadirecta.cgd.pt/CaixaDirecta/loginStart.do"
 LOGINPAGE= "https://www.bpinet.pt/verificaMCF.asp"
 MAINPAGE= "https://www.bpinet.pt/Frame.asp"
 ACCOUNTINDEX="https://www.bpinet.pt/areaInf/consultas/Movimentos/movimentosIeA.asp"
 STATEMENT="https://www.bpinet.pt/areaInf/consultas/Movimentos/Movimentos.asp" # only recent transactions
-#GETTRANSACTIONS_URL="https://www.bpinet.pt/areaInf/consultas/Movimentos/MovimentosIeA.asp"
-#GETTRANSACTIONS_CONTENT="contaCorrente=$ACCOUNT%7CNR%7C&sDia=$sDay&sMes=$sMonth&sAno=$sYear&eDia=$eDay&eMes=$eMonth&eAno=$eYear&Montante_Inf=&Montante_Sup=&tipo_mov=&tipo_servico=&h_MontanteInf=&h_MontanteSup=&h_TipoServ="
-
-
-
-
+GETTRANSACTIONS_URL="https://www.bpinet.pt/areaInf/consultas/Movimentos/MovimentosIeA.asp"
+GETTRANSACTIONS_NEXTPAGE_URL="https://www.bpinet.pt/areaInf/consultas/Movimentos/MovimentosIeA.asp?Op=2"
+GETTRANSACTIONS_PARAMETERS={'h_MontanteSup': '', 'tipo_servico': '', 'Montante_Inf': '', 'eAno': '', 'tipo_mov': '', 'contaCorrente': '|NR|', 'Montante_Sup': '', 'h_MontanteInf': '', 'sAno': '', 'h_TipoServ': '', 'sMes': '', 'eDia': '', 'eMes': '', 'sDia': ''}
 
 
 
@@ -76,7 +71,7 @@ class BPINet(Bank):
 
     def is_authenticated(self):
         try:
-            html= self.get_page(MAINPAGE)
+            self.get_page(MAINPAGE)
             return True
         except RedirectedException:
             return False
@@ -99,7 +94,7 @@ class BPINet(Bank):
             return True
 
         if  valid_parameter(password):
-            l1_html= self.get_page( LOGINPAGE, {"USERID": user,"PASSWORD": password},True )
+            self.get_page( LOGINPAGE, {"USERID": user,"PASSWORD": password},True )
             
         if not self.is_authenticated():
             raise AuthenticationException("Could not authenticate with given data")
@@ -123,27 +118,54 @@ class BPINetAccount(Account):
         self.number = number
         self.bank = bank
 
-    def get_movements(self, start_date=(date.today()-timedelta(weeks=1)), end_date=date.today, limit=100):
-        # todo: add date parameters and get all pages
-        soup = BeautifulSoup(self.bank.get_page(STATEMENT,{},True)) # todo: add date parameters
-        table = soup.findAll('table',limit=6)[5]
-        lines = table.findAll('tr')
+    def get_movements(self, start_date=(date.today()-timedelta(weeks=1)), end_date=date.today(), limit=None):
+        target_url=GETTRANSACTIONS_URL
+        post_content=GETTRANSACTIONS_PARAMETERS
+        post_content['contaCorrente']="%s|NR" % self.number
+        post_content['sDia']=start_date.day
+        post_content['sMes']=start_date.month
+        post_content['sAno']=start_date.year
+        post_content['eDia']=end_date.day
+        post_content['eMes']=end_date.month
+        post_content['eAno']=end_date.year
+        
         transactions = []
-        for line in lines:
-            columns = line.findAll('td')
-            res_inner = []
-            for col in columns:
-                res_inner.append(col.string.strip())
-            if res_inner[0] != "Data Mov.": #skipping title line
-                transaction = BPITransaction(res_inner[0],res_inner[1],res_inner[2],res_inner[3])
-                transactions.append(transaction)   
+        while True:
+            soup = BeautifulSoup(self.bank.get_page(target_url,post_content,allow_redirects=True)) 
+            table = soup.findAll('table',limit=6)[3]
+            lines = table.findAll('tr')
+
+            for line in lines:
+                columns = line.findAll('td')
+                res_inner = []
+                for col in columns:
+                    res_inner.append(col.string.strip())
+                if res_inner[0] != "Data Mov.": #skipping title line
+                    transaction = BPITransaction(date=res_inner[0],valuedate=res_inner[1],description=res_inner[2],value=res_inner[3])
+                    transactions.append(transaction)
+            if soup.find('input')['value']=='Datas Anteriores':
+                target_url=GETTRANSACTIONS_NEXTPAGE_URL
+            else:
+                break
+           
         return transactions
 
+
+
 class BPITransaction(Transaction):
+    def parse_value(self,value):
+        try:
+            # we're expecting BPINet value format like 'mmm.ccc,dd'
+            # we remove "." characters and then replace "," by "." to convert to float
+            valid_value = value.replace('.','').replace(',','.')
+            return float(valid_value)
+        except ValueError:
+            return None
+            
     def parse_date(self,value):
         try:
             # we're expecting BPINet date format like this '%Y-%m-%d'
-            # validating and creating a read date object
+            # validating and creating a real date object
             valid_date = datetime.strptime(value, '%d-%m-%Y')
             return date(valid_date.year,valid_date.month,valid_date.day)
         except ValueError:
