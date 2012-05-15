@@ -106,7 +106,7 @@ class BPINet(Bank):
         select = soup.find('select', id='contaCorrente')
         res = []
         for option in select.findAll('option'):
-            res.append((option['value'], option.string)) #todo: value has extra characters. remove them 
+            res.append((option['value'][:-4], option.string)) # I'm removing "|NR|" from the end of the account number but I'm not sure what this is
         return res
 
     def get_account(self, number=0):
