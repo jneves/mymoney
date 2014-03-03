@@ -61,7 +61,10 @@ class BPINet(Bank):
         self.cookiejar= cookielib.LWPCookieJar( )
         #if file_present:
         #    self.cookiejar.load( filename= self.cookie_file, ignore_discard=True)
-        self.opener= urllib2.build_opener( urllib2.HTTPCookieProcessor(self.cookiejar) )
+        if self.proxy:
+            self.opener= urllib2.build_opener( urllib2.HTTPCookieProcessor(self.cookiejar),self.proxy )
+        else:
+            self.opener= urllib2.build_opener( urllib2.HTTPCookieProcessor(self.cookiejar) )
 
     def save_session(self):
         logging.debug("saving cookie to file")
@@ -143,11 +146,14 @@ class BPINetAccount(Account):
                 if res_inner[0] != "Data Mov.": #skipping title line
                     transaction = BPITransaction(date=res_inner[0],valuedate=res_inner[1],description=res_inner[2],value=res_inner[3])
                     transactions.append(transaction)
-            if soup.find('input')['value']=='Datas Anteriores':
+                    
+            if "Datas Anteriores" in str(soup):
+                #FIX: this is an ungly hack because the line below stopped working
+                #if soup.find('input')['value']=='Datas Anteriores':
                 target_url=GETTRANSACTIONS_NEXTPAGE_URL
             else:
                 break
-           
+
         return transactions
 
 
