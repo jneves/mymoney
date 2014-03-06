@@ -4,7 +4,7 @@ from datetime import date
 class Transaction:
     
     def __init__(self,date,valuedate,description,value):
-        self.date = self.parse_date(date)               # date of movement/transactoin
+        self.date = self.parse_date(date)               # date of movement/transaction
         self.value_date = self.parse_date(valuedate)    # value date
         self.description = description                  # description of transaction
         self.value = self.parse_value(value)            # value of transaction
