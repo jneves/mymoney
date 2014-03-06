@@ -3,17 +3,11 @@ from datetime import date
 
 class Transaction:
     
-    date=None           # date of movement/transaction
-    value_date=None     # value date
-    description=None    # description of transaction
-    value=None          # value of transaction   
-    
-    
     def __init__(self,date,valuedate,description,value):
-        self.date = self.parse_date(date)
-        self.value_date = self.parse_date(valuedate)
-        self.description = description
-        self.value = self.parse_value(value)
+        self.date = self.parse_date(date)               # date of movement/transactoin
+        self.value_date = self.parse_date(valuedate)    # value date
+        self.description = description                  # description of transaction
+        self.value = self.parse_value(value)            # value of transaction
     
     def parse_date(self,value):
         return value
@@ -21,8 +15,8 @@ class Transaction:
     def parse_value(self,value):
         return value
     
-    #TODO: debug! remove this    
-    def to_string(self):
+    def __str__(self):
         # this is here for debugging purposes only
-        return "%s %s %s" % (self.date.isoformat(),self.description,self.value)
+        #return "%s %s %s" % (self.date.isoformat(),self.description,self.value)
+        return "%s\t%s\t%s" % (self.date.isoformat(),self.description,self.value)
 
