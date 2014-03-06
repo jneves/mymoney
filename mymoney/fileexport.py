@@ -8,13 +8,14 @@ from shutil import move
 from os import path
 
 
-#TODO: make this abstract?
 class FileExport(object):
     '''
-    Parent class for all file classes like qif and csv files
+    Parent class to export transaction data for all file classes like qif and csv files.
     '''
 
-    def __init__(self,file_path):
+    def __init__(self,file_path,header=None,footer=None):
+        self.header = header
+        self.footer = footer
         self.file_path = file_path
         
     def _create_line(self,transaction):
@@ -22,10 +23,20 @@ class FileExport(object):
  
     def save_transactions(self,transactions):
         self._save_transactions(transactions, self.file_path)
-        
+    
+    def _write_header(self):
+        if self.header:
+            self._file_handle.write(self.header + '\n')
+            
+    def _write_footer(self):
+        if self.footer:
+            self._file_handle.write(self.footer + '\n')
+            
     def _save_transactions(self,transactions,file_path):
         self._file_handle = open(file_path,"w")
+        self._write_header()
         self._write_transactions(transactions)
+        self._write_footer()
         self._file_handle.close()
 
     def _write_transactions(self,transactions):
@@ -34,12 +45,17 @@ class FileExport(object):
     
     def append_transactions_to_end(self,transactions):
         self._file_handle = open(self.file_path,"a")
+        #TODO: remove footer?
         self._write_transactions(transactions)
+        self._write_footer()
         self._file_handle.close()
         
     def append_transactions_to_start(self,transactions):
         if not path.exists(self.file_path):
             return self.save_transactions(transactions)
+        
+        #TODO: remove header
+        #TODO: write header
         temp_file_tuple = mkstemp()
         self._save_transactions(transactions, temp_file_tuple[1])
         temp_file_handle = open(temp_file_tuple[1],"a")
@@ -54,3 +70,20 @@ class FileExport(object):
         temp_file_handle.close()
         move(temp_file_tuple[1],self.file_path)
         
+class QIFFileExport(FileExport):
+    
+    def __init__(self,file_path,header='!Type:Bank'):
+        super(QIFFileExport,self).__init__(file_path,header)
+        
+    def _write_transactions(self,transactions):
+        #TODO: custom date format
+        #TODO: custom value format
+        for transaction in transactions:
+            self._file_handle.write('P%s\n' % transaction.description)
+            if transaction.value_date:
+                self._file_handle.write('D%s\n' % transaction.value_date.isoformat()) 
+            else:
+                self._file_handle.write('D%s\n' % transaction.date.isoformat()) 
+            self._file_handle.write('T%s\n' % transaction.value)
+            self._file_handle.write('^\n')
+            
