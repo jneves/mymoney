@@ -12,6 +12,8 @@ class FileExport(object):
     '''
     Parent class to export transaction data for all file classes like qif and csv files.
     '''
+    
+    _date_format='%Y/%m/%d'
 
     def __init__(self,file_path,header=None,footer=None):
         self.header = header
@@ -76,14 +78,13 @@ class QIFFileExport(FileExport):
         super(QIFFileExport,self).__init__(file_path,header)
         
     def _write_transactions(self,transactions):
-        #TODO: custom date format
         #TODO: custom value format
         for transaction in transactions:
             self._file_handle.write('P%s\n' % transaction.description)
             if transaction.value_date:
-                self._file_handle.write('D%s\n' % transaction.value_date.isoformat()) 
+                self._file_handle.write('D%s\n' % transaction.value_date.strftime(self._date_format)) 
             else:
-                self._file_handle.write('D%s\n' % transaction.date.isoformat()) 
+                self._file_handle.write('D%s\n' % transaction.date.strftime(self._date_format)) 
             self._file_handle.write('T%s\n' % transaction.value)
             self._file_handle.write('^\n')
             
