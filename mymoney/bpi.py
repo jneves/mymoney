@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 
-from bank import Bank
-from account import Account
-from transaction import Transaction
+from .bank import Bank
+from .account import Account
+from .transaction import Transaction
 
-import urllib, urllib2
-from BeautifulSoup import BeautifulSoup
-import cookielib
+import urllib.request, urllib.parse, urllib.error, urllib.request, urllib.error, urllib.parse
+from bs4 import BeautifulSoup
+import http.cookiejar
 import logging
 import os
 
@@ -29,9 +29,9 @@ class AuthenticationException( Exception):
     pass
 
 def post_request(url, values):
-    data = urllib.urlencode(values)
-    req = urllib2.Request(url, data)
-    return urllib2.urlopen(req)
+    data = urllib.parse.urlencode(values)
+    req = urllib.request.Request(url, data)
+    return urllib.request.urlopen(req)
 
 class BPINet(Bank):
     name = "BPI"
@@ -49,8 +49,9 @@ class BPINet(Bank):
                 self.authenticate(user, password)
 
     def get_page(self, url, parameters={}, allow_redirects=False):
-        d= urllib.urlencode(parameters)
-        f= self.opener.open(url, data=d)
+        d= urllib.parse.urlencode(parameters)
+        data = d.encode("utf8")
+        f= self.opener.open(url, data)
         if not allow_redirects and f.geturl()!=url:
             raise RedirectedException("got "+f.geturl()+" instead of "+url)
         html= f.read()
@@ -58,13 +59,13 @@ class BPINet(Bank):
 
     def load_session(self, file_present=True):
         logging.debug("loading cookie from file")
-        self.cookiejar= cookielib.LWPCookieJar( )
+        self.cookiejar= http.cookiejar.LWPCookieJar( )
         #if file_present:
         #    self.cookiejar.load( filename= self.cookie_file, ignore_discard=True)
         if self.proxy:
-            self.opener= urllib2.build_opener( urllib2.HTTPCookieProcessor(self.cookiejar),self.proxy )
+            self.opener= urllib.request.build_opener( urllib.request.HTTPCookieProcessor(self.cookiejar),self.proxy )
         else:
-            self.opener= urllib2.build_opener( urllib2.HTTPCookieProcessor(self.cookiejar) )
+            self.opener= urllib.request.build_opener( urllib.request.HTTPCookieProcessor(self.cookiejar) )
 
     def save_session(self):
         logging.debug("saving cookie to file")
@@ -137,12 +138,12 @@ class BPINetAccount(Account):
             soup = BeautifulSoup(self.bank.get_page(target_url,post_content,allow_redirects=True)) 
             table = soup.findAll('table',limit=6)[3]
             lines = table.findAll('tr')
-
             for line in lines:
                 columns = line.findAll('td')
                 res_inner = []
                 for col in columns:
-                    res_inner.append(col.string.strip())
+                    if col.string != None:
+                        res_inner.append(col.string.strip())
                 if res_inner[0] != "Data Mov.": #skipping title line
                     transaction = BPITransaction(date=res_inner[0],valuedate=res_inner[1],description=res_inner[2],value=res_inner[3])
                     transactions.append(transaction)

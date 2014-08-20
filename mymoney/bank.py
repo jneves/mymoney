@@ -1,4 +1,4 @@
-import urllib2
+import urllib.request, urllib.error, urllib.parse
 
 class Bank:
     def __init__(self, info,proxy=None):
@@ -17,6 +17,6 @@ class Bank:
 
     def add_proxy(self,proxy): #TODO: maybe this should be moved somewhere else
         if proxy:
-            self.proxy = urllib2.ProxyHandler({'https': proxy}) #TODO: support other kinds of proxies?
+            self.proxy = urllib.request.ProxyHandler({'https': proxy}) #TODO: support other kinds of proxies?
         else:
             self.proxy = None
