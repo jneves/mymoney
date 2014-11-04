@@ -170,7 +170,7 @@ class BPITransaction(Transaction):
             
     def parse_date(self,value):
         try:
-            # we're expecting BPINet date format like this '%Y-%m-%d'
+            # we're expecting BPINet date format like this 'dd-mm-yyyy'
             # validating and creating a real date object
             valid_date = datetime.strptime(value, '%d-%m-%Y')
             return date(valid_date.year,valid_date.month,valid_date.day)
