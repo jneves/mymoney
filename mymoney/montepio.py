@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 
-from bank import Bank
-from account import Account
+from .bank import Bank
+from .account import Account
 
-import urllib, urllib2
-from BeautifulSoup import BeautifulSoup
-import cookielib
+import urllib.request, urllib.parse, urllib.error, urllib.request, urllib.error, urllib.parse
+from bs4 import BeautifulSoup
+import http.cookiejar
 import logging
 import re
 import os
@@ -69,10 +69,10 @@ class MontepioNet24(Bank):
 
     def load_session(self, file_present=True):
         logging.debug("loading cookie from file")
-        self.cookiejar= cookielib.LWPCookieJar( )
+        self.cookiejar= http.cookiejar.LWPCookieJar( )
         #if file_present:
         #    self.cookiejar.load( filename= self.cookie_file, ignore_discard=True)
-        self.opener= urllib2.build_opener( urllib2.HTTPCookieProcessor(self.cookiejar) )
+        self.opener= urllib.request.build_opener( urllib.request.HTTPCookieProcessor(self.cookiejar) )
         self.opener.addheaders = [
                 ('User-agent','Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/535.7 (KHTML, like Gecko) Chrome/16.0.912.21 Safari/535.7'),
                 ('Origin', 'https://net24.montepio.pt'),
@@ -85,7 +85,7 @@ class MontepioNet24(Bank):
         self.cookiejar.save( filename= self.cookie_file, ignore_discard=True)
 
     def get_page(self, url, parameters={}, allow_redirects=False):
-        d= urllib.urlencode(parameters)
+        d= urllib.parse.urlencode(parameters)
         f= self.opener.open(url, data=d)
         if not allow_redirects and f.geturl()!=url:
             raise RedirectedException("got "+f.geturl()+" instead of "+url)

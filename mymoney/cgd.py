@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 
-from bank import Bank
-from account import Account
+from .bank import Bank
+from .account import Account
 
-import urllib, urllib2
-from BeautifulSoup import BeautifulSoup
-import cxdo_auth
-import cookielib
+import urllib.request, urllib.parse, urllib.error, urllib.request, urllib.error, urllib.parse
+from bs4 import BeautifulSoup
+from . import cxdo_auth
+import http.cookiejar
 import logging
 import re
 import os
@@ -26,9 +26,9 @@ class AuthenticationException( Exception):
     pass
 
 def post_request(url, values):
-    data = urllib.urlencode(values)
-    req = urllib2.Request(url, data)
-    return urllib2.urlopen(req)
+    data = urllib.parse.urlencode(values)
+    req = urllib.request.Request(url, data)
+    return urllib.request.urlopen(req)
 
 class CGDCaixaDirecta(Bank):
     name = "CGD"
@@ -46,7 +46,7 @@ class CGDCaixaDirecta(Bank):
                 self.authenticate(user, password)
 
     def get_page(self, url, parameters={}, allow_redirects=False):
-        d= urllib.urlencode(parameters)
+        d= urllib.parse.urlencode(parameters)
         f= self.opener.open(url, data=d)
         if not allow_redirects and f.geturl()!=url:
             raise RedirectedException("got "+f.geturl()+" instead of "+url)
@@ -57,10 +57,10 @@ class CGDCaixaDirecta(Bank):
 
     def load_session(self, file_present=True):
         logging.debug("loading cookie from file")
-        self.cookiejar= cookielib.LWPCookieJar( )
+        self.cookiejar= http.cookiejar.LWPCookieJar( )
         #if file_present:
         #    self.cookiejar.load( filename= self.cookie_file, ignore_discard=True)
-        self.opener= urllib2.build_opener( urllib2.HTTPCookieProcessor(self.cookiejar) )
+        self.opener= urllib.request.build_opener( urllib.request.HTTPCookieProcessor(self.cookiejar) )
 
     def save_session(self):
         logging.debug("saving cookie to file")

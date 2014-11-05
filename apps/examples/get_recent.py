@@ -18,5 +18,5 @@ try:
     transactions=account.get_movements()
     for transaction in transactions:
         print("%s\t%s\t%s" % (transaction.date,transaction.description,transaction.value))
-except Exception, e:
+except Exception(e):
     print(e)
