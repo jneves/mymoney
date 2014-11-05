@@ -5,5 +5,6 @@ from .cgd import *
 from .bpi import *
 from .millenniumbcp import *
 from .montepio import *
+from .ticket import *
 
 from .fileexport import *
