@@ -120,8 +120,15 @@ class TicketRestaurantAccount(Account):
                 for col in columns:
                     if col.string != None:
                         res_inner.append(col.string.strip())
+                    else:
+                        res_inner.append(None)
                 if res_inner[0] != "Data": #skipping title line
-                    transaction = TicketRestaurantTransaction(date=res_inner[0],valuedate=res_inner[0],description=res_inner[1],value=res_inner[2])
+                    value = res_inner[2]
+                    if value == None:
+                        value = res_inner[3]
+                    else:
+                        value = "-"+value
+                    transaction = TicketRestaurantTransaction(date=res_inner[0],valuedate=res_inner[0],description=res_inner[1],value=value)
                     transactions.append(transaction)
 
             return transactions
