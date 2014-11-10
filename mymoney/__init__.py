@@ -6,5 +6,6 @@ from .bpi import *
 from .millenniumbcp import *
 from .montepio import *
 from .ticket import *
+from .euroticketREST import *
 
 from .fileexport import *
