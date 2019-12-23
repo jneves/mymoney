@@ -59,7 +59,7 @@ class BPINet(Bank):
         d = urllib.parse.urlencode(parameters)
         data = d.encode("utf8")
         f = self.opener.open(url, data)
-        if not allow_redirects and f.geturl()!=url:
+        if not allow_redirects and f.geturl() != url:
             raise RedirectedException("got "+f.geturl()+" instead of "+url)
         html = f.read()
         if DEBUG:
@@ -73,15 +73,22 @@ class BPINet(Bank):
         #if file_present:
         #    self.cookiejar.load( filename= self.cookie_file, ignore_discard=True)
         if self.proxy:
-            self.opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(self.cookiejar),self.proxy )
+            self.opener = urllib.request.build_opener(
+                urllib.request.HTTPCookieProcessor(self.cookiejar),
+                self.proxy,
+            )
         else:
-            self.opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(self.cookiejar) )
+            self.opener = urllib.request.build_opener(
+                urllib.request.HTTPCookieProcessor(self.cookiejar),
+            )
 
     def save_session(self):
         logging.debug("saving cookie to file")
         if self.cookie_file is None:
-            raise Exception("Cookie filename was not specified on construction")
-        self.cookiejar.save( filename= self.cookie_file, ignore_discard=True)
+            raise Exception(
+                "Cookie filename was not specified on construction"
+            )
+        self.cookiejar.save(filename=self.cookie_file, ignore_discard=True)
 
     def is_authenticated(self):
         try:
@@ -109,7 +116,9 @@ class BPINet(Bank):
         html = self.get_page(LOGINPAGE)
         soup = BeautifulSoup(html, "html.parser")
 
-        login_inputs = soup.find_all("input", attrs={'name': re.compile("UserId|Password")})
+        # login_inputs = soup.find_all(
+        #    "input", attrs={'name': re.compile("UserId|Password")}
+        # )
         viewstate_input = soup.find_all('input', attrs={'name': '__VIEWSTATE'})
         if viewstate_input and len(viewstate_input) == 1:
             self.__VIEWSTATE = viewstate_input[0]['value']
@@ -121,16 +130,27 @@ class BPINet(Bank):
         else:
             raise AuthenticationException("Could not get __OVSTATE value")
 
+        if valid_parameter(password):
+            parameters = {
+                USERNAME_PARAM: user,
+                PASSWORD_PARAM: password,
+                BUTTON_PARAM: 'Entrar',
+            }
 
-        if  valid_parameter(password):
-            self.get_page( LOGINPAGE, {USERNAME_PARAM: user, PASSWORD_PARAM: password, BUTTON_PARAM: 'Entrar'},True )
-            
+            self.get_page(
+                LOGINPAGE,
+                parameters,
+                True,
+            )
+
         if not self.is_authenticated():
-            raise AuthenticationException("Could not authenticate with given data")
+            raise AuthenticationException(
+                "Could not authenticate with given data"
+            )
 
     def get_account_list(self):
         logging.debug("getting account list")
-        html = self.get_page(ACCOUNTINDEX,{},True)
+        html = self.get_page(ACCOUNTINDEX, {}, True)
         soup = BeautifulSoup(html)
         select = soup.find('select', id='contaCorrente')
         res = []
