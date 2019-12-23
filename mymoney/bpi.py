@@ -1,46 +1,41 @@
 # -*- coding: utf-8 -*-
 
+import urllib.request
+import urllib.parse
+import urllib.error
+from bs4 import BeautifulSoup
+import http.cookiejar
+import logging
+import re
+
+from datetime import datetime, date
 from .bank import Bank
 from .account import Account
 from .transaction import Transaction
 
-import urllib.request, urllib.parse, urllib.error, urllib.request, urllib.error, urllib.parse
-from bs4 import BeautifulSoup
-import http.cookiejar
-import logging
-import os
-import re
-
-from datetime import datetime,date,timedelta
-
 DEBUG = True
-#LOGINPAGE= "https://www.bpinet.pt/verificaMCF.asp"
 LOGINPAGE = "https://bpinet.bancobpi.pt/BPINET/Login.aspx"
-#MAINPAGE= "https://www.bpinet.pt/Frame.asp"
 MAINPAGE = "https://bpinet.bancobpi.pt/BPINet_Contas/Movimentos.aspx"
-ACCOUNTINDEX="https://www.bpinet.pt/areaInf/consultas/Movimentos/movimentosIeA.asp"
-STATEMENT="https://www.bpinet.pt/areaInf/consultas/Movimentos/Movimentos.asp" # only recent transactions
-GETTRANSACTIONS_URL="https://bpinet.bancobpi.pt/BPINet_Contas/Movimentos.aspx"
-#GETTRANSACTIONS_URL="https://www.bpinet.pt/areaInf/consultas/Movimentos/MovimentosIeA.asp"
-GETTRANSACTIONS_NEXTPAGE_URL="https://www.bpinet.pt/areaInf/consultas/Movimentos/MovimentosIeA.asp?Op=2"
-GETTRANSACTIONS_PARAMETERS={'h_MontanteSup': '', 'tipo_servico': '', 'Montante_Inf': '', 'eAno': '', 'tipo_mov': '', 'contaCorrente': '|NR|', 'Montante_Sup': '', 'h_MontanteInf': '', 'sAno': '', 'h_TipoServ': '', 'sMes': '', 'eDia': '', 'eMes': '', 'sDia': ''}
-
+GETTRANSACTIONS_URL = "https://bpinet.bancobpi.pt/BPINet_Contas/Movimentos.aspx"
 
 USERNAME_PARAM = 'LT_BPINet_wtLT_Layout_Login$block$wtInputsLogin$CS_BPINet_Autenticacao_wt49$block$wtUserId'
 PASSWORD_PARAM = 'LT_BPINet_wtLT_Layout_Login$block$wtInputsLogin$CS_BPINet_Autenticacao_wt49$block$wtPassword'
 BUTTON_PARAM = 'LT_BPINet_wtLT_Layout_Login$block$wtInputsLogin$CS_BPINet_Autenticacao_wt49$block$wtBtnEntrar'
 
 
+class RedirectedException(Exception):
+    pass
 
-class RedirectedException( Exception ):
+
+class AuthenticationException(Exception):
     pass
-class AuthenticationException( Exception):
-    pass
+
 
 def post_request(url, values):
     data = urllib.parse.urlencode(values)
     req = urllib.request.Request(url, data)
     return urllib.request.urlopen(req)
+
 
 class BPINet(Bank):
     name = "BPI"
@@ -53,10 +48,10 @@ class BPINet(Bank):
 
     def start(self, user, password, cookie_file=None):
         self.cookie_file = cookie_file
-        # CURRENTLY NOT SUPPORTING SESSION REUSE 
-        self.load_session(False) 
+        # CURRENTLY NOT SUPPORTING SESSION REUSE
+        self.load_session(False)
         self.authenticate(user, password)
-        
+
     def get_page(self, url, parameters={}, allow_redirects=False):
         if self.__OSVSTATE:
             parameters['__OSVSTATE'] = self.__OSVSTATE
@@ -74,13 +69,13 @@ class BPINet(Bank):
 
     def load_session(self, file_present=True):
         logging.debug("loading cookie from file")
-        self.cookiejar= http.cookiejar.LWPCookieJar( )
+        self.cookiejar = http.cookiejar.LWPCookieJar()
         #if file_present:
         #    self.cookiejar.load( filename= self.cookie_file, ignore_discard=True)
         if self.proxy:
-            self.opener = urllib.request.build_opener( urllib.request.HTTPCookieProcessor(self.cookiejar),self.proxy )
+            self.opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(self.cookiejar),self.proxy )
         else:
-            self.opener = urllib.request.build_opener( urllib.request.HTTPCookieProcessor(self.cookiejar) )
+            self.opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(self.cookiejar) )
 
     def save_session(self):
         logging.debug("saving cookie to file")
@@ -147,6 +142,7 @@ class BPINet(Bank):
         logging.debug("getting account")
         return BPINetAccount(number, self)
 
+
 class BPINetAccount(Account):
     def __init__(self, number, bank):
         self.number = number
@@ -176,21 +172,22 @@ class BPINetAccount(Account):
 
 
 class BPITransaction(Transaction):
-    def parse_value(self,value):
+    def parse_value(self, value):
         try:
             # we're expecting BPINet value format like 'mmm.ccc,dd EUR'
-            # we remove "." characters and then replace "," by "." to convert to float
-            valid_value = value.replace('.','').replace(',','.').replace(' EUR', '')
+            # we remove "." characters and then replace "," by "."
+            # to convert to float
+            valid_value = value.replace('.', '').replace(',', '.')
+            valid_value = valid_value.replace(' EUR', '')
             return float(valid_value)
         except ValueError:
             return None
-            
-    def parse_date(self,value):
+
+    def parse_date(self, value):
         try:
             # we're expecting BPINet date format like this 'dd-mm-yyyy'
             # validating and creating a real date object
             valid_date = datetime.strptime(value, '%d-%m-%Y')
-            return date(valid_date.year,valid_date.month,valid_date.day)
+            return date(valid_date.year, valid_date.month, valid_date.day)
         except ValueError:
             return None
-
