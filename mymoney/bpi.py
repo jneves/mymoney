@@ -152,57 +152,35 @@ class BPINetAccount(Account):
         self.number = number
         self.bank = bank
 
-    def get_movements_new(self):
+    def get_movements(self):
         target_url = GETTRANSACTIONS_URL
         page = self.bank.get_page(target_url)
         soup = BeautifulSoup(page, features="html.parser")
-        transactions = []  
-        return transactions
-
-
-    def get_movements(self, start_date=(date.today()-timedelta(weeks=1)), end_date=date.today(), limit=None):
-        target_url=GETTRANSACTIONS_URL
-        post_content=GETTRANSACTIONS_PARAMETERS
-        post_content['contaCorrente']="%s|NR" % self.number
-        post_content['sDia']=start_date.day
-        post_content['sMes']=start_date.month
-        post_content['sAno']=start_date.year
-        post_content['eDia']=end_date.day
-        post_content['eMes']=end_date.month
-        post_content['eAno']=end_date.year
-        
         transactions = []
-        while True:
-            soup = BeautifulSoup(self.bank.get_page(target_url,post_content,allow_redirects=True)) 
-            table = soup.findAll('table',limit=6)[3]
-            lines = table.findAll('tr')
-            for line in lines:
-                columns = line.findAll('td')
-                res_inner = []
-                for col in columns:
-                    if col.string != None:
-                        res_inner.append(col.string.strip())
-                if res_inner[0] != "Data Mov.": #skipping title line
-                    transaction = BPITransaction(date=res_inner[0],valuedate=res_inner[1],description=res_inner[2],value=res_inner[3])
-                    transactions.append(transaction)
-                    
-            if "Datas Anteriores" in str(soup):
-                #FIX: this is an ungly hack because the line below stopped working
-                #if soup.find('input')['value']=='Datas Anteriores':
-                target_url=GETTRANSACTIONS_NEXTPAGE_URL
-            else:
-                break
+        movements_lines = soup.find_all('tr')
+        for movement_line in movements_lines:
+            columns = movement_line.find_all('td')
+            movement = []
+            for column in columns:
+                movement.append(column.get_text().strip())
+            if len(movement) > 0:
+                transaction = BPITransaction(
+                    date=movement[0],
+                    valuedate=movement[1],
+                    description=movement[2],
+                    value=movement[3],
+                )
+                transactions.append(transaction)
 
         return transactions
-
 
 
 class BPITransaction(Transaction):
     def parse_value(self,value):
         try:
-            # we're expecting BPINet value format like 'mmm.ccc,dd'
+            # we're expecting BPINet value format like 'mmm.ccc,dd EUR'
             # we remove "." characters and then replace "," by "." to convert to float
-            valid_value = value.replace('.','').replace(',','.')
+            valid_value = value.replace('.','').replace(',','.').replace(' EUR', '')
             return float(valid_value)
         except ValueError:
             return None
