@@ -9,17 +9,26 @@ from bs4 import BeautifulSoup
 import http.cookiejar
 import logging
 import os
+import re
 
 from datetime import datetime,date,timedelta
 
-
-LOGINPAGE= "https://www.bpinet.pt/verificaMCF.asp"
-MAINPAGE= "https://www.bpinet.pt/Frame.asp"
+DEBUG = True
+#LOGINPAGE= "https://www.bpinet.pt/verificaMCF.asp"
+LOGINPAGE = "https://bpinet.bancobpi.pt/BPINET/Login.aspx"
+#MAINPAGE= "https://www.bpinet.pt/Frame.asp"
+MAINPAGE = "https://bpinet.bancobpi.pt/BPINet_Contas/Movimentos.aspx"
 ACCOUNTINDEX="https://www.bpinet.pt/areaInf/consultas/Movimentos/movimentosIeA.asp"
 STATEMENT="https://www.bpinet.pt/areaInf/consultas/Movimentos/Movimentos.asp" # only recent transactions
-GETTRANSACTIONS_URL="https://www.bpinet.pt/areaInf/consultas/Movimentos/MovimentosIeA.asp"
+GETTRANSACTIONS_URL="https://bpinet.bancobpi.pt/BPINet_Contas/Movimentos.aspx"
+#GETTRANSACTIONS_URL="https://www.bpinet.pt/areaInf/consultas/Movimentos/MovimentosIeA.asp"
 GETTRANSACTIONS_NEXTPAGE_URL="https://www.bpinet.pt/areaInf/consultas/Movimentos/MovimentosIeA.asp?Op=2"
 GETTRANSACTIONS_PARAMETERS={'h_MontanteSup': '', 'tipo_servico': '', 'Montante_Inf': '', 'eAno': '', 'tipo_mov': '', 'contaCorrente': '|NR|', 'Montante_Sup': '', 'h_MontanteInf': '', 'sAno': '', 'h_TipoServ': '', 'sMes': '', 'eDia': '', 'eMes': '', 'sDia': ''}
+
+
+USERNAME_PARAM = 'LT_BPINet_wtLT_Layout_Login$block$wtInputsLogin$CS_BPINet_Autenticacao_wt49$block$wtUserId'
+PASSWORD_PARAM = 'LT_BPINet_wtLT_Layout_Login$block$wtInputsLogin$CS_BPINet_Autenticacao_wt49$block$wtPassword'
+BUTTON_PARAM = 'LT_BPINet_wtLT_Layout_Login$block$wtInputsLogin$CS_BPINet_Autenticacao_wt49$block$wtBtnEntrar'
 
 
 
@@ -35,26 +44,32 @@ def post_request(url, values):
 
 class BPINet(Bank):
     name = "BPI"
+    __OSVSTATE = None
+    __VIEWSTATE = None
 
     def login(self):
         self.start(self.info["user"], self.info["pass"], "cookie.txt")
         self.save_session()
 
     def start(self, user, password, cookie_file=None):
-        if cookie_file:
-            self.cookie_file= cookie_file
-            self.load_session(os.path.isfile(cookie_file))
-            if not self.is_authenticated():
-                logging.info("saved cookie session has expired")
-                self.authenticate(user, password)
-
+        self.cookie_file = cookie_file
+        # CURRENTLY NOT SUPPORTING SESSION REUSE 
+        self.load_session(False) 
+        self.authenticate(user, password)
+        
     def get_page(self, url, parameters={}, allow_redirects=False):
-        d= urllib.parse.urlencode(parameters)
+        if self.__OSVSTATE:
+            parameters['__OSVSTATE'] = self.__OSVSTATE
+            parameters['__VIEWSTATE'] = self.__VIEWSTATE
+        d = urllib.parse.urlencode(parameters)
         data = d.encode("utf8")
-        f= self.opener.open(url, data)
+        f = self.opener.open(url, data)
         if not allow_redirects and f.geturl()!=url:
             raise RedirectedException("got "+f.geturl()+" instead of "+url)
-        html= f.read()
+        html = f.read()
+        if DEBUG:
+            with open("response.html", 'w') as fo:
+                fo.write(html.decode('utf8'))
         return html
 
     def load_session(self, file_present=True):
@@ -63,9 +78,9 @@ class BPINet(Bank):
         #if file_present:
         #    self.cookiejar.load( filename= self.cookie_file, ignore_discard=True)
         if self.proxy:
-            self.opener= urllib.request.build_opener( urllib.request.HTTPCookieProcessor(self.cookiejar),self.proxy )
+            self.opener = urllib.request.build_opener( urllib.request.HTTPCookieProcessor(self.cookiejar),self.proxy )
         else:
-            self.opener= urllib.request.build_opener( urllib.request.HTTPCookieProcessor(self.cookiejar) )
+            self.opener = urllib.request.build_opener( urllib.request.HTTPCookieProcessor(self.cookiejar) )
 
     def save_session(self):
         logging.debug("saving cookie to file")
@@ -96,9 +111,24 @@ class BPINet(Bank):
                     logging.error('invalid authentication parameter')
                     return False
             return True
+        html = self.get_page(LOGINPAGE)
+        soup = BeautifulSoup(html, "html.parser")
+
+        login_inputs = soup.find_all("input", attrs={'name': re.compile("UserId|Password")})
+        viewstate_input = soup.find_all('input', attrs={'name': '__VIEWSTATE'})
+        if viewstate_input and len(viewstate_input) == 1:
+            self.__VIEWSTATE = viewstate_input[0]['value']
+        else:
+            raise AuthenticationException("Could not get __VIEWSTATE value")
+        osvstate_input = soup.find_all('input', attrs={'name': '__OSVSTATE'})
+        if osvstate_input and len(osvstate_input) == 1:
+            self.__OSVSTATE = osvstate_input[0]['value']
+        else:
+            raise AuthenticationException("Could not get __OVSTATE value")
+
 
         if  valid_parameter(password):
-            self.get_page( LOGINPAGE, {"USERID": user,"PASSWORD": password},True )
+            self.get_page( LOGINPAGE, {USERNAME_PARAM: user, PASSWORD_PARAM: password, BUTTON_PARAM: 'Entrar'},True )
             
         if not self.is_authenticated():
             raise AuthenticationException("Could not authenticate with given data")
@@ -121,6 +151,14 @@ class BPINetAccount(Account):
     def __init__(self, number, bank):
         self.number = number
         self.bank = bank
+
+    def get_movements_new(self):
+        target_url = GETTRANSACTIONS_URL
+        page = self.bank.get_page(target_url)
+        soup = BeautifulSoup(page, features="html.parser")
+        transactions = []  
+        return transactions
+
 
     def get_movements(self, start_date=(date.today()-timedelta(weeks=1)), end_date=date.today(), limit=None):
         target_url=GETTRANSACTIONS_URL
