@@ -12,7 +12,6 @@ from .bank import Bank
 from .account import Account
 from .transaction import Transaction
 
-DEBUG = True
 LOGINPAGE = "https://bpinet.bancobpi.pt/BPINET/Login.aspx"
 MAINPAGE = "https://bpinet.bancobpi.pt/BPINet_Contas/Movimentos.aspx"
 GETTRANSACTIONS_URL = "https://bpinet.bancobpi.pt/BPINet_Contas/Movimentos.aspx"
@@ -61,9 +60,11 @@ class BPINet(Bank):
         if not allow_redirects and f.geturl() != url:
             raise RedirectedException("got "+f.geturl()+" instead of "+url)
         html = f.read()
+        """
         if DEBUG:
             with open("response.html", 'w') as fo:
                 fo.write(html.decode('utf8'))
+        """
         return html
 
     def load_session(self, file_present=True):
