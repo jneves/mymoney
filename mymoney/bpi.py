@@ -6,7 +6,6 @@ import urllib.error
 from bs4 import BeautifulSoup
 import http.cookiejar
 import logging
-import re
 
 from datetime import datetime, date
 from .bank import Bank
