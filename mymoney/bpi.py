@@ -149,15 +149,8 @@ class BPINet(Bank):
             )
 
     def get_account_list(self):
-        logging.debug("getting account list")
-        html = self.get_page(ACCOUNTINDEX, {}, True)
-        soup = BeautifulSoup(html)
-        select = soup.find('select', id='contaCorrente')
-        res = []
-        for option in select.findAll('option'):
-            res.append((option['value'][:-4], option.string)) # I'm removing "|NR|" from the end of the account number but I'm not sure what this is
-        return res
-
+        raise NotImplementedError
+ 
     def get_account(self, number=0):
         logging.debug("getting account")
         return BPINetAccount(number, self)
