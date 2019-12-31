@@ -32,11 +32,17 @@ class BankShell(cmd.Cmd):
         password = getpass.getpass("Insira o seu código de acesso: ")
         bank = mymoney.BPINet({"user": line, "pass": password})
         try:
+            account = bank.get_account()
+            self.accounts[0] = account
+            self.account_names[0] = ''
+            """ 
+            # MULTIPLE ACCOUNT CURRENTLY NOT SUPPORTED
             accounts = bank.get_account_list()
             for acc in accounts:
                 account = bank.get_account(acc[0])
                 self.accounts["%s-%s" % (account.bank.name, acc[0])] = account
                 self.account_names["%s-%s" % (account.bank.name, acc[0])] = acc[1]
+            """
             self.banks.append(bank)
         except Exception as e:
             print(e)
