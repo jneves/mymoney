@@ -15,6 +15,9 @@ BASE_URL = "https://www.particulares.santandertotta.pt/"
 LOGIN_PAGE = "bepp/sanpt/usuarios/login/?"
 GETTRANSACTIONS_URL = BASE_URL + "/bepp/sanpt/cuentas/listadomovimientoscuenta/0,,,0.shtml" # noqa
 
+GETCARDS_URL = BASE_URL + 'bepp/sanpt/tarjetas/listadomovimientostarjetadebito/0,,,0.shtml' # noqa
+GETCARD_TRANSACTIONS_URL = BASE_URL + 'bepp/sanpt/tarjetas/listadomovimientosadebitotarjetacredito/?' # noqa
+
 
 class AuthenticationException(Exception):
     pass
@@ -167,44 +170,135 @@ class Santander(Bank):
         logging.debug("getting account")
         return SantanderAccount(number, self)
 
+    def get_card_list(self):
+        # TODO: also return card name
+        s = self.session
+        r = s.post(
+            url=GETCARDS_URL,
+            data={
+                'OGC_TOKEN': self.OGC_TOKEN,
+            }
+        )
+        soup = bs4.BeautifulSoup(r.text, "html.parser")
+        debit_cards = []
+        credit_cards = []
+        table = soup.find('table', attrs={'class': 'trans', 'id': 'Table5'})
+
+        lines = table.find_all('tr')
+        for line in lines:
+            if 'class' in line.attrs and 'total' in line.attrs['class']:
+                break
+            if 'class' in line.attrs and 'header' in line.attrs['class']:
+                continue
+            if 'class' in line.attrs and 'sectn' in line.attrs['class']:
+                if 'Débito' in line.text:
+                    cards = debit_cards
+                elif 'Crédito' in line.text:
+                    cards = credit_cards
+                continue
+            columns = line.find_all('td')
+            card_id = columns[0].find('input').attrs['value']
+            card_name = columns[0].find('a').text.strip()
+            cards.append({
+                'id': card_id,
+                'name': card_name,
+            })
+        return (debit_cards, credit_cards)
+    
+    def get_card_statement_list(self, card_id):
+        s = self.session
+        r = s.post(
+            url=GETCARD_TRANSACTIONS_URL,
+            data={
+                'accion': '2',
+                'codigoTarjeta': card_id,
+                'numMovements': '15',
+                'idProduct': '',
+                'tipoTarjeta': '',
+                'cardId': card_id,
+                'OGC_TOKEN': self.OGC_TOKEN,
+            }
+        )
+        soup = bs4.BeautifulSoup(r.text, "html.parser")
+        table = soup.find('table', attrs={'id': 'Table5', 'class': 'trans'})
+        lines = table.find_all('tr')
+        statements = []
+        for line in lines:
+            if 'header' in line.attrs['class']:
+                continue
+            columns = line.find_all('td')
+            if len(columns) != 3:
+                continue
+
+            statement_id = columns[0].text
+            statement_date = columns[1].text.strip()
+            statement_state = columns[2].text.strip()
+            statements.append(
+                {
+                    'id': statement_id,
+                    'date': statement_date,
+                    'state': statement_state,
+                }
+            )
+        return statements
+
 
 class SantanderAccount(Account):
     def __init__(self, number, bank):
         self.number = number
         self.bank = bank
 
-    def get_movements(self):
+    def get_movements(self, iter_pages=True):
         s = self.bank.session
-        r = s.post(
-            url=GETTRANSACTIONS_URL,
-            data={
+        next_page = 0
+        transactions = []
+        while True:
+            params = {
                 "OGC_TOKEN": self.bank.OGC_TOKEN,
             }
-        )
-        transactions = []
-        soup = bs4.BeautifulSoup(r.text, "html.parser")
-
-        items = soup.find_all('a', attrs={"class": "tr"})
-        for item in items:
-            columns = item.find_all('span')
-            for col in columns:
-                if 'DataValor' in col.attrs['id']:
-                    valuedate = col.text
-                elif 'DataOperacao' in col.attrs['id']:
-                    date = col.text
-                elif 'Descricao' in col.attrs['id']:
-                    description = col.text
-                elif 'Valor' in col.attrs['id']:
-                    value = col.text
-                elif 'Saldo' in col.attrs['id']:
-                    balance = col.text # noqa
-            transaction = SantanderTransaction(
-                date,
-                valuedate,
-                description,
-                value,
+            if next_page > 0:
+                params['numeroPagina'] = str(next_page)
+            r = s.post(
+                url=GETTRANSACTIONS_URL,
+                data=params
             )
-            transactions.append(transaction)
+            soup = bs4.BeautifulSoup(r.text, "html.parser")
+
+            items = soup.find_all('a', attrs={"class": "tr"})
+            for item in items:
+                columns = item.find_all('span')
+                for col in columns:
+                    if 'DataValor' in col.attrs['id']:
+                        valuedate = col.text
+                    elif 'DataOperacao' in col.attrs['id']:
+                        date = col.text
+                    elif 'Descricao' in col.attrs['id']:
+                        description = col.text
+                    elif 'Valor' in col.attrs['id']:
+                        value = col.text
+                    elif 'Saldo' in col.attrs['id']:
+                        balance = col.text # noqa
+                transaction = SantanderTransaction(
+                    date,
+                    valuedate,
+                    description,
+                    value,
+                )
+                transactions.append(transaction)
+            if not iter_pages:
+                break
+            current_page = int(soup.find_all('li', attrs={'class': 'current'})[0].text)
+            next_page = 0
+            for li in soup.find_all('li'):
+                if 'class' in li.attrs and 'current' in li.attrs['class']:
+                    current_page = int(li.text)
+                elif 'onclick' in li.attrs and 'cambioPagina' in li.attrs['onclick']:
+                    if 'class' not in li.attrs:
+                        if int(li.text) > current_page:
+                            next_page = int(li.text)
+                            break
+            if next_page == 0:
+                break
         return transactions
 
 
