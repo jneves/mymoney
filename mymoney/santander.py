@@ -1,8 +1,5 @@
 # -*- coding: utf-8 -*-
 import requests
-import urllib.request
-import urllib.parse
-import urllib.error
 import bs4
 import time
 import re
@@ -16,21 +13,11 @@ from .transaction import Transaction
 
 BASE_URL = "https://www.particulares.santandertotta.pt/"
 LOGIN_PAGE = "bepp/sanpt/usuarios/login/?"
-GETTRANSACTIONS_URL = BASE_URL + "/bepp/sanpt/cuentas/listadomovimientoscuenta/0,,,0.shtml"
-
-
-class RedirectedException(Exception):
-    pass
+GETTRANSACTIONS_URL = BASE_URL + "/bepp/sanpt/cuentas/listadomovimientoscuenta/0,,,0.shtml" # noqa
 
 
 class AuthenticationException(Exception):
     pass
-
-
-def post_request(url, values):
-    data = urllib.parse.urlencode(values)
-    req = urllib.request.Request(url, data)
-    return urllib.request.urlopen(req)
 
 
 class Santander(Bank):
@@ -39,65 +26,67 @@ class Santander(Bank):
     __VIEWSTATE = None
 
     def login(self):
-        self.start()
+        self.start()  # load cookies and parameters
         self.authenticate(self.info["user"], self.info["pass"])
 
     def start(self, cookie_file=None):
-        self.cookie_file = cookie_file
         # CURRENTLY NOT SUPPORTING SESSION REUSE
         self.load_session(False)
 
-    def get_page(self, url, parameters=None, allow_redirects=False):
-        if parameters:
-            d = urllib.parse.urlencode(parameters)
-            data = d.encode("utf8")
-            f = self.opener.open(url, data)
-        else:
-            f = self.opener.open(url)
-        
-        if not allow_redirects and f.geturl() != url:
-            raise RedirectedException("got "+f.geturl()+" instead of "+url)
-        html = f.read()
-        if True:
-            with open("response.html", 'w') as fo:
-                fo.write(html.decode('utf8'))
-        return html
-
     def load_session(self, file_present=True):
+        """
+        Loads some variables and tokens required for the
+        authentication call.
+        """
+        # For logging in into Santander, we need to find the obfuscated
+        # parameter names for username and password used by the login endpoint.
+        # No clue why they do this. Maybe "for security reasons".
+        #
+        # They also use some tokens. Some are mandatory to avoid 500.
+        # Some, not sure...
+        logging.debug("loading session variables...")
+
         self.session = requests.Session()
         s = self.session
         r = s.get(
             BASE_URL,
             allow_redirects=True,
-            verify=False,
+            verify=not self.debug,  # don't validate certificate if debug mode
         )
 
-        # get next url
+        # Get next url which is emdebed in an iframe
+        # We must get this url which include some values we need
         soup = bs4.BeautifulSoup(r.text, 'html.parser')
         iframes = soup.find_all('iframe')
         url = BASE_URL + iframes[0].attrs['src']
 
-        # get params
+        # Get some params. Not sure which are mandatory or even variable
         r = s.get(
             url
         )
         self.login_params = {
-        # These two seem fixed and seem not to make a difference
-        #   'sessiontoken': '5abcfd042b26eb423ae0ebda84f8505',  
-        #   'P2hoCyPjpg': 'bGFuZ3VhZ2U6ZW4tR0IsY29sb3JEZXB0aDoyNCxkZXZpY2VNZW1vcnk6bm90IGF2YWlsYWJsZSxzY3JlZW5SZXNvbHV0aW9uOjkwMCwxNDQwLGF2YWlsYWJsZVNjcmVlblJlc29sdXRpb246ODM3LDE0NDAsdGltZXpvbmVPZmZzZXQ6MCx0aW1lem9uZTpFdXJvcGUvTGlzYm9uLGNwdUNsYXNzOm5vdCBhdmFpbGFibGUscGxhdGZvcm06TWFjSW50ZWwsd2ViZ2xWZW5kb3JBbmRSZW5kZXJlcjpJbnRlbCBJbmMufkludGVsKFIpIElyaXMoVE0pIFBsdXMgR3JhcGhpY3MgNjQ1LHRvdWNoU3VwcG9ydDowLGZhbHNlLGZhbHNlLGF1ZGlvOjM1LjczODMyOTU5MzA5MjI%3D',
+            # These two seem fixed and seem not to make a difference
+            # 'sessiontoken': '5abcfd042b26eb423ae0ebda84f8505',
+            # 'P2hoCyPjpg': 'bGFuZ3VhZ2U6ZW4tR0IsY29sb3JEZXB0aDoyNCxkZXZpY2VNZW1vcnk6bm90IGF2YWlsYWJsZSxzY3JlZW5SZXNvbHV0aW9uOjkwMCwxNDQwLGF2YWlsYWJsZVNjcmVlblJlc29sdXRpb246ODM3LDE0NDAsdGltZXpvbmVPZmZzZXQ6MCx0aW1lem9uZTpFdXJvcGUvTGlzYm9uLGNwdUNsYXNzOm5vdCBhdmFpbGFibGUscGxhdGZvcm06TWFjSW50ZWwsd2ViZ2xWZW5kb3JBbmRSZW5kZXJlcjpJbnRlbCBJbmMufkludGVsKFIpIElyaXMoVE0pIFBsdXMgR3JhcGhpY3MgNjQ1LHRvdWNoU3VwcG9ydDowLGZhbHNlLGZhbHNlLGF1ZGlvOjM1LjczODMyOTU5MzA5MjI%3D',  # noqa
             'accion': '3',
             'ssafe': '',
             'linkHomeURL': ''
         }
+
+        # Get the param values from hidden inputs in the page html
         soup = bs4.BeautifulSoup(r.text, 'html.parser')
         items = soup.find_all('input')
         for item in items:
             if item.attrs['name'] in self.login_params and 'value' in item.attrs:  # noqa
                 self.login_params[item.attrs['name']] = item.attrs['value']
 
+        # Not sure if this call is necessary...
         r = s.get(
             BASE_URL + "nbp_guard"
         )
+
+        # Now this seems required to get the CSRF token that will be
+        # used later on
         headers = {
             'FETCH-CSRF-TOKEN': '1',
         }
@@ -105,61 +94,63 @@ class Santander(Bank):
             BASE_URL + "nbp_guard",
             headers=headers,
         )
-        self.OGC_TOKEN = r.text.split(':')[1]
+        self.OGC_TOKEN = r.text.split(':')[1]  # the token!
 
-        # this seems irrelevant but we'll keep it as is
+        # This timestamp seems irrelevant but we'll keep it as is
         ts = str(time.time()).split('.')[0]
         r = s.get(
             BASE_URL + "jsp/sanpt/usuarios/login_functions.jsp?_=" + ts,
             headers={
-                'OGC_TOKEN': self.OGC_TOKEN,
+                'OGC_TOKEN': self.OGC_TOKEN,  # must have this token in
             }
         )
 
+        # Now this next call will return a script which includes the
+        # obfuscated parameter names.
+
+        # Here's the timestamp again
         ts = str(time.time()).split('.')[0]
         r = s.get(
             BASE_URL + "jsp/sanpt/usuarios/loginForm_novo.jsp?_=" + ts,
             headers={
-                'OGC_TOKEN': self.OGC_TOKEN,
+                'OGC_TOKEN': self.OGC_TOKEN,  # must have the token
             }
         )
 
-        # finding username and password obfuscated parameter names
+        # Finding username and password obfuscated parameter names
+        # from the returned script. The values are repeated a few times
+        # in the code. The first time is the password.
         matches = re.findall(
             "\'([A-Z0-9]+)\'",
             r.text,
         )
-        self.password_param_name = matches[0]
+        self.password_param_name = matches[0]  # first occurrence
         for match in matches:
             if match != self.password_param_name:
                 self.username_param_name = match
                 break
+        return
 
     def is_authenticated(self):
-        try:
-            self.get_page(MAINPAGE)
-            return True
-        except RedirectedException:
-            return False
-        return False
+        raise NotImplementedError
 
     def authenticate(self, user, password):
+        """ Actual authentication. Needs variables previously loaded """
         logging.debug("authenticating...")
 
         self.login_params[self.username_param_name] = user
         self.login_params[self.password_param_name] = password
         self.login_params['OGC_TOKEN'] = self.OGC_TOKEN
         s = self.session
-        r = s.post(
+        s.post(
             url=BASE_URL + LOGIN_PAGE,
             data=self.login_params,
             headers={
                 "Origin": BASE_URL,
                 "Connection": "close",
-                "Referer": BASE_URL + "bepp/sanpt/usuarios/login/0,,,0.shtml?usr="+user,
             }
         )
-        #TODO: check if login successful
+        # TODO: check if login successful
 
         # getting next legit url from embedded redirect script
         # not sure if we really need this
@@ -171,7 +162,7 @@ class Santander(Bank):
 
     def get_account_list(self):
         raise NotImplementedError
- 
+
     def get_account(self, number=0):
         logging.debug("getting account")
         return SantanderAccount(number, self)
@@ -206,7 +197,7 @@ class SantanderAccount(Account):
                 elif 'Valor' in col.attrs['id']:
                     value = col.text
                 elif 'Saldo' in col.attrs['id']:
-                    balance = col.text
+                    balance = col.text # noqa
             transaction = SantanderTransaction(
                 date,
                 valuedate,
