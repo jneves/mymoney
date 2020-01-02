@@ -16,7 +16,8 @@ LOGIN_PAGE = "bepp/sanpt/usuarios/login/?"
 GETTRANSACTIONS_URL = BASE_URL + "/bepp/sanpt/cuentas/listadomovimientoscuenta/0,,,0.shtml" # noqa
 
 GETCARDS_URL = BASE_URL + 'bepp/sanpt/tarjetas/listadomovimientostarjetadebito/0,,,0.shtml' # noqa
-GETCARD_TRANSACTIONS_URL = BASE_URL + 'bepp/sanpt/tarjetas/listadomovimientosadebitotarjetacredito/?' # noqa
+GETCARD_STATEMENTS_URL = BASE_URL + 'bepp/sanpt/tarjetas/listadomovimientosadebitotarjetacredito/?' # noqa
+GETCARD_TRANSACTIONS_URL = BASE_URL + 'bepp/sanpt/tarjetas/consultamovimientosextractotarjetacredito/?' # noqa
 
 
 class AuthenticationException(Exception):
@@ -171,7 +172,6 @@ class Santander(Bank):
         return SantanderAccount(number, self)
 
     def get_card_list(self):
-        # TODO: also return card name
         s = self.session
         r = s.post(
             url=GETCARDS_URL,
@@ -204,43 +204,10 @@ class Santander(Bank):
                 'name': card_name,
             })
         return (debit_cards, credit_cards)
-    
-    def get_card_statement_list(self, card_id):
-        s = self.session
-        r = s.post(
-            url=GETCARD_TRANSACTIONS_URL,
-            data={
-                'accion': '2',
-                'codigoTarjeta': card_id,
-                'numMovements': '15',
-                'idProduct': '',
-                'tipoTarjeta': '',
-                'cardId': card_id,
-                'OGC_TOKEN': self.OGC_TOKEN,
-            }
-        )
-        soup = bs4.BeautifulSoup(r.text, "html.parser")
-        table = soup.find('table', attrs={'id': 'Table5', 'class': 'trans'})
-        lines = table.find_all('tr')
-        statements = []
-        for line in lines:
-            if 'header' in line.attrs['class']:
-                continue
-            columns = line.find_all('td')
-            if len(columns) != 3:
-                continue
 
-            statement_id = columns[0].text
-            statement_date = columns[1].text.strip()
-            statement_state = columns[2].text.strip()
-            statements.append(
-                {
-                    'id': statement_id,
-                    'date': statement_date,
-                    'state': statement_state,
-                }
-            )
-        return statements
+    def get_card(self, card_id):
+        logging.debug("getting card")
+        return SantanderCard(card_id, self)
 
 
 class SantanderAccount(Account):
@@ -248,7 +215,7 @@ class SantanderAccount(Account):
         self.number = number
         self.bank = bank
 
-    def get_movements(self, iter_pages=True):
+    def get_movements(self, iter_pages=False):
         s = self.bank.session
         next_page = 0
         transactions = []
@@ -302,13 +269,107 @@ class SantanderAccount(Account):
         return transactions
 
 
+class SantanderCard():
+
+    def __init__(self, id, bank):
+        self.bank = bank
+        self.id = id
+
+    def get_card_statement_list(self):
+        s = self.bank.session
+        r = s.post(
+            url=GETCARD_STATEMENTS_URL,
+            data={
+                'accion': '2',
+                'codigoTarjeta': self.id,
+                'numMovements': '15',
+                'idProduct': '',
+                'tipoTarjeta': '',
+                'cardId': self.id,
+                'OGC_TOKEN': self.bank.OGC_TOKEN,
+            }
+        )
+        soup = bs4.BeautifulSoup(r.text, "html.parser")
+        table = soup.find('table', attrs={'id': 'Table5', 'class': 'trans'})
+        lines = table.find_all('tr')
+        statements = []
+        for line in lines:
+            if 'header' in line.attrs['class']:
+                continue
+            columns = line.find_all('td')
+            if len(columns) != 3:
+                continue
+
+            statement_id = columns[0].text
+            statement_date = columns[1].text.strip()
+            statement_state = columns[2].text.strip()
+            statements.append(
+                {
+                    'id': statement_id,
+                    'date': statement_date,
+                    'state': statement_state,
+                }
+            )
+        return statements
+
+    def get_movements(self, statement_id, iter_pages=False):
+        s = self.bank.session
+        transactions = []
+        page_number = ''
+        while True:
+            r = s.post(
+                url=GETCARD_TRANSACTIONS_URL,
+                data={
+                    'accion': '3',
+                    'params': 'si',
+                    'numeroPagina': page_number,
+                    'codigoTarjeta': self.id,
+                    'codigoExtracto': statement_id, 
+                    'cardId': self.id,
+                    'extractId': statement_id,
+                    'OGC_TOKEN': self.bank.OGC_TOKEN,
+                }
+            )
+            soup = bs4.BeautifulSoup(r.text, "html.parser")
+            table = soup.find('table', attrs={'class': 'trans'})
+            lines = table.find_all('tr')
+
+            for line in lines:
+                if 'class' in line.attrs and 'header' in line.attrs['class']:
+                    continue
+                columns = line.find_all('td')
+                date = columns[0].text.strip()
+                description = columns[1].text.strip()
+                cred_or_deb = columns[3].text.strip()
+                value = columns[4].text.strip()
+                if 'Débito' in cred_or_deb:
+                    value = "-" + value
+                transaction = SantanderTransaction(
+                    date, date, description, value)
+                transactions.append(transaction)
+            if not iter_pages:
+                break
+            pages = soup.find('p', attrs={'class': 'pages'})
+            current_page = pages.find('strong').text
+            other_pages = pages.find_all('a')
+            for other_page in other_pages:
+                if '>>' in other_page.text:
+                    page_number = re.findall(
+                        "cambioPagina\(\'(\d+)\'",
+                        other_page.attrs['href'],
+                    )[0]
+                    continue
+            break
+        return transactions
+
+
 class SantanderTransaction(Transaction):
     def parse_value(self, value):
         try:
             # we're expecting Santander value format like 'mmm.ccc,dd EUR'
             # we remove "." characters and then replace "," by "."
             # to convert to float
-            valid_value = value.replace('.', '').replace(',', '.')
+            valid_value = value.replace('.', '').replace(',', '.').replace(' EUR', '')
             return float(valid_value)
         except ValueError:
             return None
