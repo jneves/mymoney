@@ -1,8 +1,10 @@
-import urllib.request, urllib.error, urllib.parse
+import urllib.request
+
 
 class Bank:
-    def __init__(self, info,proxy=None):
+    def __init__(self, info, proxy=None, debug=False):
         self.info = info
+        self.debug = debug
         self.add_proxy(proxy)
         self.login()
 
@@ -15,7 +17,7 @@ class Bank:
     def search_movement(self, *kwargs):
         pass
 
-    def add_proxy(self,proxy): #TODO: maybe this should be moved somewhere else
+    def add_proxy(self, proxy): #TODO: maybe this should be moved somewhere else
         if proxy:
             self.proxy = urllib.request.ProxyHandler({'https': proxy}) #TODO: support other kinds of proxies?
         else:
