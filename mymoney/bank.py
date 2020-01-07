@@ -17,8 +17,9 @@ class Bank:
     def search_movement(self, *kwargs):
         pass
 
-    def add_proxy(self, proxy): #TODO: maybe this should be moved somewhere else
+    def add_proxy(self, proxy):  # TODO: maybe this should be moved somewhere
         if proxy:
-            self.proxy = urllib.request.ProxyHandler({'https': proxy}) #TODO: support other kinds of proxies?
+            # TODO: support other kinds of proxies?
+            self.proxy = urllib.request.ProxyHandler({'https': proxy})
         else:
             self.proxy = None

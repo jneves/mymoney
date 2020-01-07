@@ -60,11 +60,6 @@ class BPINet(Bank):
         if not allow_redirects and f.geturl() != url:
             raise RedirectedException("got "+f.geturl()+" instead of "+url)
         html = f.read()
-        """
-        if DEBUG:
-            with open("response.html", 'w') as fo:
-                fo.write(html.decode('utf8'))
-        """
         return html
 
     def load_session(self, file_present=True):
@@ -150,7 +145,7 @@ class BPINet(Bank):
 
     def get_account_list(self):
         raise NotImplementedError
- 
+
     def get_account(self, number=0):
         logging.debug("getting account")
         return BPINetAccount(number, self)
