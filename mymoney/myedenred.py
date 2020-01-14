@@ -2,7 +2,7 @@
 import requests
 import json
 import time
-import date
+from datetime import date
 import logging
 
 import dateutil.parser
