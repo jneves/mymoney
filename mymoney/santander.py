@@ -253,8 +253,8 @@ class SantanderAccount(Account):
                 )
                 if (
                     since_date is None or
-                    transaction.date > since_date or
-                    transaction.value_date > since_date
+                    transaction.date >= since_date or
+                    transaction.value_date >= since_date
                 ):
                     transactions.append(transaction)
             if not iter_pages:
@@ -359,8 +359,8 @@ class SantanderCard():
                     date, date, description, value)
                 if (
                     since_date is None or
-                    transaction.date > since_date or
-                    transaction.value_date > since_date
+                    transaction.date >= since_date or
+                    transaction.value_date >= since_date
                 ):
                     transactions.append(transaction)
             if not iter_pages:
