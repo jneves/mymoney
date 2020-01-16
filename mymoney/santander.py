@@ -215,7 +215,7 @@ class SantanderAccount(Account):
         self.number = number
         self.bank = bank
 
-    def get_movements(self, iter_pages=False):
+    def get_movements(self, iter_pages=False, since_date=None):
         s = self.bank.session
         next_page = 0
         transactions = []
@@ -251,7 +251,12 @@ class SantanderAccount(Account):
                     description,
                     value,
                 )
-                transactions.append(transaction)
+                if (
+                    since_date is None or
+                    transaction.date > since_date or
+                    transaction.value_date > since_date
+                ):
+                    transactions.append(transaction)
             if not iter_pages:
                 break
             current_page = int(soup.find_all('li', attrs={'class': 'current'})[0].text)
@@ -333,6 +338,8 @@ class SantanderCard():
             soup = bs4.BeautifulSoup(r.text, "html.parser")
             table = soup.find('table', attrs={'class': 'trans'})
             lines = table.find_all('tr')
+            if len(lines) == 0:
+                return []
 
             for line in lines:
                 if 'class' in line.attrs and 'header' in line.attrs['class']:
