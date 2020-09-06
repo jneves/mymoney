@@ -3,6 +3,7 @@
 import urllib.request
 import urllib.parse
 import urllib.error
+import ssl
 from bs4 import BeautifulSoup
 import http.cookiejar
 import logging
@@ -65,16 +66,27 @@ class BPINet(Bank):
     def load_session(self, file_present=True):
         logging.debug("loading cookie from file")
         self.cookiejar = http.cookiejar.LWPCookieJar()
+
+        ctx = ssl.create_default_context()
+        if self.ignore_ssl_verication:
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+        ssl_handler = urllib.request.HTTPSHandler(
+            debuglevel=0,
+            context=ctx,
+        )
         #if file_present:
         #    self.cookiejar.load( filename= self.cookie_file, ignore_discard=True)
         if self.proxy:
             self.opener = urllib.request.build_opener(
                 urllib.request.HTTPCookieProcessor(self.cookiejar),
                 self.proxy,
+                ssl_handler,
             )
         else:
             self.opener = urllib.request.build_opener(
                 urllib.request.HTTPCookieProcessor(self.cookiejar),
+                ssl_handler,
             )
 
     def save_session(self):
