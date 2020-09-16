@@ -215,7 +215,7 @@ class SantanderAccount(Account):
         self.number = number
         self.bank = bank
 
-    def get_movements(self, iter_pages=False):
+    def get_movements(self, iter_pages=False, since_date=None):
         s = self.bank.session
         next_page = 0
         transactions = []
@@ -251,7 +251,12 @@ class SantanderAccount(Account):
                     description,
                     value,
                 )
-                transactions.append(transaction)
+                if (
+                    since_date is None or
+                    transaction.date >= since_date or
+                    transaction.value_date >= since_date
+                ):
+                    transactions.append(transaction)
             if not iter_pages:
                 break
             current_page = int(soup.find_all('li', attrs={'class': 'current'})[0].text)
@@ -301,7 +306,11 @@ class SantanderCard():
                 continue
 
             statement_id = columns[0].text
-            statement_date = columns[1].text.strip()
+            sdate = columns[1].text.strip()
+            if sdate != '':
+                statement_date = SantanderTransaction.parse_date(sdate)
+            else:
+                statement_date = None
             statement_state = columns[2].text.strip()
             statements.append(
                 {
@@ -312,7 +321,7 @@ class SantanderCard():
             )
         return statements
 
-    def get_movements(self, statement_id, iter_pages=False):
+    def get_movements(self, statement_id, iter_pages=False, since_date=None):
         s = self.bank.session
         transactions = []
         page_number = ''
@@ -333,6 +342,8 @@ class SantanderCard():
             soup = bs4.BeautifulSoup(r.text, "html.parser")
             table = soup.find('table', attrs={'class': 'trans'})
             lines = table.find_all('tr')
+            if len(lines) == 0:
+                return []
 
             for line in lines:
                 if 'class' in line.attrs and 'header' in line.attrs['class']:
@@ -346,9 +357,15 @@ class SantanderCard():
                     value = "-" + value
                 transaction = SantanderTransaction(
                     date, date, description, value)
-                transactions.append(transaction)
+                if (
+                    since_date is None or
+                    transaction.date >= since_date or
+                    transaction.value_date >= since_date
+                ):
+                    transactions.append(transaction)
             if not iter_pages:
                 break
+            page_number = ''
             pages = soup.find('p', attrs={'class': 'pages'})
             current_page = pages.find('strong').text
             other_pages = pages.find_all('a')
@@ -359,11 +376,13 @@ class SantanderCard():
                         other_page.attrs['href'],
                     )[0]
                     continue
-            break
+            if page_number == '':
+                break
         return transactions
 
 
 class SantanderTransaction(Transaction):
+    
     def parse_value(self, value):
         try:
             # we're expecting Santander value format like 'mmm.ccc,dd EUR'
@@ -374,7 +393,8 @@ class SantanderTransaction(Transaction):
         except ValueError:
             return None
 
-    def parse_date(self, value):
+    @staticmethod
+    def parse_date(value):
         try:
             # we're expecting Santander date format like this 'dd-mm-yyyy'
             # validating and creating a real date object
