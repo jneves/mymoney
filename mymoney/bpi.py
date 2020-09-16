@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import re
 import urllib.request
 import urllib.parse
 import urllib.error
@@ -17,9 +18,14 @@ LOGINPAGE = "https://bpinet.bancobpi.pt/BPINET/Login.aspx"
 MAINPAGE = "https://bpinet.bancobpi.pt/BPINet_Contas/Movimentos.aspx"
 GETTRANSACTIONS_URL = "https://bpinet.bancobpi.pt/BPINet_Contas/Movimentos.aspx"
 
-USERNAME_PARAM = 'LT_BPINet_wtLT_Layout_Login$block$wtInputsLogin$CS_BPINet_Autenticacao_wt49$block$wtUserId'
-PASSWORD_PARAM = 'LT_BPINet_wtLT_Layout_Login$block$wtInputsLogin$CS_BPINet_Autenticacao_wt49$block$wtPassword'
-BUTTON_PARAM = 'LT_BPINet_wtLT_Layout_Login$block$wtInputsLogin$CS_BPINet_Autenticacao_wt49$block$wtBtnEntrar'
+# These inputs change name often
+# Hopefully only a small part of the name we can match to these regexps
+# Ex: 'LT_BPINet_wtLT_Layout_Login$block$wtInputsLogin$CS_BPINet_Autenticacao_wt49$block$wtUserId'
+USERNAME_PARAM = 'LT_BPINet_wtLT_Layout_Login.*UserId'
+# Ex: 'LT_BPINet_wtLT_Layout_Login$block$wtInputsLogin$CS_BPINet_Autenticacao_wt49$block$wtPassword'
+PASSWORD_PARAM = 'LT_BPINet_wtLT_Layout_Login.*Password'
+# Ex: 'LT_BPINet_wtLT_Layout_Login$block$wtInputsLogin$CS_BPINet_Autenticacao_wt49$block$wtBtnEntrar'
+BUTTON_PARAM = 'LT_BPINet_wtLT_Layout_Login.*BtnEntrar'
 
 
 class RedirectedException(Exception):
@@ -75,6 +81,7 @@ class BPINet(Bank):
             debuglevel=0,
             context=ctx,
         )
+
         #if file_present:
         #    self.cookiejar.load( filename= self.cookie_file, ignore_discard=True)
         if self.proxy:
@@ -88,6 +95,17 @@ class BPINet(Bank):
                 urllib.request.HTTPCookieProcessor(self.cookiejar),
                 ssl_handler,
             )
+            self.opener.addheaders = [
+                ('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:79.0) Gecko/20100101 Firefox/79.0'),
+                ('Accept', 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'),
+                ('Accept-Language', 'en-GB,en;q=0.5'),
+                #('Accept-Encoding', 'gzip, deflate'),
+                ('Content-Type', 'application/x-www-form-urlencoded'),
+                ('Origin', 'https://bpinet.bancobpi.pt'),
+                ('DNT', '1'),
+                ('Referer', 'https://bpinet.bancobpi.pt/BPINET/login.aspx'),
+                ('Upgrade-Insecure-Requests', '1'),
+            ]
 
     def save_session(self):
         logging.debug("saving cookie to file")
@@ -137,11 +155,17 @@ class BPINet(Bank):
         else:
             raise AuthenticationException("Could not get __OVSTATE value")
 
+        # These inputs change name often.
+        # Hopefully the change is just a small part of the string (a number)
+        username_param = soup.find_all('input', attrs={'name': re.compile(USERNAME_PARAM)})[0].attrs['name']
+        password_param = soup.find_all('input', attrs={'name': re.compile(PASSWORD_PARAM)})[0].attrs['name']
+        button_param = soup.find_all('input', attrs={'name': re.compile(BUTTON_PARAM)})[0].attrs['name']
+
         if valid_parameter(password):
             parameters = {
-                USERNAME_PARAM: user,
-                PASSWORD_PARAM: password,
-                BUTTON_PARAM: 'Entrar',
+                username_param: user,
+                password_param: password,
+                button_param: 'Entrar',
             }
 
             self.get_page(
