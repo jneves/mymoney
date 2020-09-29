@@ -30,3 +30,6 @@ pip-log.txt
 
 #Mr Developer
 .mr.developer.cfg
+
+# Configuration files. Include *.json.sample instead
+*.json
