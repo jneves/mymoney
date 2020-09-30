@@ -17,6 +17,7 @@ from .transaction import Transaction
 LOGINPAGE = "https://bpinet.bancobpi.pt/BPINET/Login.aspx"
 MAINPAGE = "https://bpinet.bancobpi.pt/BPINet_Contas/Movimentos.aspx"
 GETTRANSACTIONS_URL = "https://bpinet.bancobpi.pt/BPINet_Contas/Movimentos.aspx"
+GETCCTRANSACTIONS_URL = "https://bpinet.bancobpi.pt/BPINet_Cartoes/SaldosEMovimentos.aspx"
 
 # These inputs change name often
 # Hopefully only a small part of the name we can match to these regexps
@@ -214,6 +215,29 @@ class BPINetAccount(Account):
 
         return transactions
 
+    def get_cc_movements(self, invert_sign=False):
+        target_url = GETCCTRANSACTIONS_URL
+        page = self.bank.get_page(target_url)
+        soup = BeautifulSoup(page, features="html.parser")
+        transactions = []
+        movements_lines = soup.find_all('tr')
+        for movement_line in movements_lines:
+            columns = movement_line.find_all('td')
+            movement = []
+            for column in columns:
+                movement.append(column.get_text().strip())
+            if len(movement) > 0:
+                transaction = BPITransaction(
+                    date=movement[2],
+                    valuedate=movement[1],
+                    description=movement[0],
+                    value=movement[3],
+                )
+                if invert_sign:
+                    transaction.value = -1 * transaction.value
+                transactions.append(transaction)
+
+        return transactions
 
 class BPITransaction(Transaction):
     def parse_value(self, value):
