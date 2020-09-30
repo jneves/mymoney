@@ -1,3 +1,4 @@
+json
 requests
 bs4
 python-dateutil
