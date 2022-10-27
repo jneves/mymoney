@@ -18,3 +18,10 @@ test_*
 
 # Belonging to another repo
 dashboard
+
+# Dev
+.vscode
+.devcontainer
+
+# MacOS
+.DS_Store
