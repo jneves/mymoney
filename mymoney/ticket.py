@@ -30,11 +30,12 @@ def post_request(url, values):
 class TicketRestaurant(Bank):
     name = "TicketRestaurant"
 
-    def login(self):
+    def login(self, persist_cookies=False):
         self.start(self.info["user"], self.info["pass"], "cookie.txt")
-        self.save_session()
+        if persist_cookies:
+            self.save_session()
 
-    def start(self, user, password, cookie_file=None):  
+    def start(self, user, password, cookie_file=None):
         if cookie_file:
             self.cookie_file= cookie_file
             self.load_session(os.path.isfile(cookie_file))
@@ -53,8 +54,8 @@ class TicketRestaurant(Bank):
             raise RedirectedException("got "+f.geturl()+" instead of "+url)
         html= f.read()
         return html
-        
-        
+
+
     def load_session(self, file_present=True):
         logging.debug("loading cookie from file")
         self.cookiejar= http.cookiejar.LWPCookieJar( )
@@ -106,11 +107,11 @@ class TicketRestaurantAccount(Account):
 
     def get_movements(self):
         target_url=STATEMENT
-        
+
         transactions = []
         while True:
             soup = BeautifulSoup(self.bank.get_page(target_url,None,allow_redirects=True))
-            soup = soup.findAll(id='ctl00_Conteudo_PanelConteud')[0]            
+            soup = soup.findAll(id='ctl00_Conteudo_PanelConteud')[0]
             table = soup.findAll('table')[1]
             lines = table.findAll('tr')
 
@@ -144,7 +145,7 @@ class TicketRestaurantTransaction(Transaction):
             return float(valid_value)
         except ValueError:
             return None
-            
+
     def parse_date(self,value):
         try:
             # we're expecting date format like this 'mm-dd'
@@ -158,7 +159,7 @@ class TicketRestaurantTransaction(Transaction):
                 valid_date = datetime(now.year-1,valid_date.month,valid_date.day,0,0)
             else:
                 valid_date = datetime(now.year,valid_date.month,valid_date.day,0,0)
-                    
+
             return date(valid_date.year,valid_date.month,valid_date.day)
         except ValueError:
             return None

@@ -48,9 +48,10 @@ class BPINet(Bank):
     __OSVSTATE = None
     __VIEWSTATE = None
 
-    def login(self):
+    def login(self, persist_cookies=False):
         self.start(self.info["user"], self.info["pass"], "cookie.txt")
-        self.save_session()
+        if persist_cookies:
+            self.save_session()
 
     def start(self, user, password, cookie_file=None):
         self.cookie_file = cookie_file
