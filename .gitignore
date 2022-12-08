@@ -16,9 +16,6 @@ cookie.txt
 # Files used for local testing
 test_*
 
-# Belonging to another repo
-dashboard
-
 # Dev
 .vscode
 .devcontainer
