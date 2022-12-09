@@ -28,6 +28,9 @@ PASSWORD_PARAM = 'LT_BPINet_wtLT_Layout_Login.*Password'
 # Ex: 'LT_BPINet_wtLT_Layout_Login$block$wtInputsLogin$CS_BPINet_Autenticacao_wt49$block$wtBtnEntrar'
 BUTTON_PARAM = 'LT_BPINet_wtLT_Layout_Login.*BtnEntrar'
 
+BALANCE_D_DIV = "LT_BPINet_wt.*wtSaldoDisponivel2_block_wtDetailValue"
+BALANCE_C_DIV = "LT_BPINet_wt.*wtSaldoContabilistico2_block_wtDetailValue"
+
 
 class RedirectedException(Exception):
     pass
@@ -239,6 +242,27 @@ class BPINetAccount(Account):
                 transactions.append(transaction)
 
         return transactions
+
+    def get_balance(self):
+        target_url = GETTRANSACTIONS_URL
+        page = self.bank.get_page(target_url)
+        soup = BeautifulSoup(page, features="html.parser")
+        value = soup.find_all(
+            'div', attrs={'id': re.compile(BALANCE_D_DIV)}
+        )[0].find("span").text
+        return self.parse_value(value)
+
+    def parse_value(self, value):
+        try:
+            # we're expecting BPINet value format like 'mmm.ccc,dd EUR'
+            # we remove "." characters and then replace "," by "."
+            # to convert to float
+            valid_value = value.replace('.', '').replace(',', '.')
+            valid_value = valid_value.replace(' EUR', '')
+            return float(valid_value)
+        except ValueError:
+            return None
+
 
 class BPITransaction(Transaction):
     def parse_value(self, value):
