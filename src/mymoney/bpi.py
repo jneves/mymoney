@@ -75,7 +75,7 @@ class BPINet(Bank):
         return html
 
     def load_session(self, file_present=True):
-        logging.debug("loading cookie from file")
+        logging.debug("Loading cookie from file")
         self.cookiejar = http.cookiejar.LWPCookieJar()
 
         ctx = ssl.create_default_context()
@@ -87,7 +87,7 @@ class BPINet(Bank):
             context=ctx,
         )
 
-        #if file_present:
+        #  if file_present:
         #    self.cookiejar.load( filename= self.cookie_file, ignore_discard=True)
         if self.proxy:
             self.opener = urllib.request.build_opener(
@@ -104,7 +104,7 @@ class BPINet(Bank):
                 ('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:79.0) Gecko/20100101 Firefox/79.0'),
                 ('Accept', 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'),
                 ('Accept-Language', 'en-GB,en;q=0.5'),
-                #('Accept-Encoding', 'gzip, deflate'),
+                #  ('Accept-Encoding', 'gzip, deflate'),
                 ('Content-Type', 'application/x-www-form-urlencoded'),
                 ('Origin', 'https://bpinet.bancobpi.pt'),
                 ('DNT', '1'),
@@ -113,7 +113,7 @@ class BPINet(Bank):
             ]
 
     def save_session(self):
-        logging.debug("saving cookie to file")
+        logging.debug("Saving cookie to file")
         if self.cookie_file is None:
             raise Exception(
                 "Cookie filename was not specified on construction"
@@ -129,7 +129,7 @@ class BPINet(Bank):
         return False
 
     def authenticate(self, user, password):
-        logging.debug("authenticating...")
+        logging.debug("Authenticating...")
 
         def valid_parameter(parameter):
             ''' all char in passwd must be integers
@@ -188,7 +188,7 @@ class BPINet(Bank):
         raise NotImplementedError
 
     def get_account(self, number=0):
-        logging.debug("getting account")
+        logging.debug("Getting account")
         return BPINetAccount(number, self)
 
 
