@@ -21,11 +21,11 @@ GETCCTRANSACTIONS_URL = "https://bpinet.bancobpi.pt/BPINet_Cartoes/SaldosEMovime
 
 # These inputs change name often
 # Hopefully only a small part of the name we can match to these regexps
-# Ex: 'LT_BPINet_wtLT_Layout_Login$block$wtInputsLogin$CS_BPINet_Autenticacao_wt49$block$wtUserId'
+# Ex: 'LT_BPINet_wtLT_Layout_Login$block$wtInputsLogin$CS_BPINet_Autenticacao_wt49$block$wtUserId'  # noqa, just examples
 USERNAME_PARAM = 'LT_BPINet_wtLT_Layout_Login.*UserId'
-# Ex: 'LT_BPINet_wtLT_Layout_Login$block$wtInputsLogin$CS_BPINet_Autenticacao_wt49$block$wtPassword'
+# Ex: 'LT_BPINet_wtLT_Layout_Login$block$wtInputsLogin$CS_BPINet_Autenticacao_wt49$block$wtPassword'  # noqa, just examples
 PASSWORD_PARAM = 'LT_BPINet_wtLT_Layout_Login.*Password'
-# Ex: 'LT_BPINet_wtLT_Layout_Login$block$wtInputsLogin$CS_BPINet_Autenticacao_wt49$block$wtBtnEntrar'
+# Ex: 'LT_BPINet_wtLT_Layout_Login$block$wtInputsLogin$CS_BPINet_Autenticacao_wt49$block$wtBtnEntrar'  # noqa, just examples
 BUTTON_PARAM = 'LT_BPINet_wtLT_Layout_Login.*BtnEntrar'
 
 BALANCE_D_DIV = "LT_BPINet_wt.*wtSaldoDisponivel2_block_wtDetailValue"
@@ -88,7 +88,8 @@ class BPINet(Bank):
         )
 
         #  if file_present:
-        #    self.cookiejar.load( filename= self.cookie_file, ignore_discard=True)
+        #    self.cookiejar.load(
+        #       filename=self.cookie_file, ignore_discard=True)
         if self.proxy:
             self.opener = urllib.request.build_opener(
                 urllib.request.HTTPCookieProcessor(self.cookiejar),
@@ -162,9 +163,15 @@ class BPINet(Bank):
 
         # These inputs change name often.
         # Hopefully the change is just a small part of the string (a number)
-        username_param = soup.find_all('input', attrs={'name': re.compile(USERNAME_PARAM)})[0].attrs['name']
-        password_param = soup.find_all('input', attrs={'name': re.compile(PASSWORD_PARAM)})[0].attrs['name']
-        button_param = soup.find_all('input', attrs={'name': re.compile(BUTTON_PARAM)})[0].attrs['name']
+        username_param = soup.find_all(
+            'input', attrs={
+                'name': re.compile(USERNAME_PARAM)})[0].attrs['name']
+        password_param = soup.find_all(
+            'input', attrs={
+                'name': re.compile(PASSWORD_PARAM)})[0].attrs['name']
+        button_param = soup.find_all(
+            'input', attrs={
+                'name': re.compile(BUTTON_PARAM)})[0].attrs['name']
 
         if valid_parameter(password):
             parameters = {
