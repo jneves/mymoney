@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 
-from bank import Bank
-from account import Account
+from .bank import Bank
+from .account import Account
 
-import urllib, urllib2
-from BeautifulSoup import BeautifulSoup
-import cxdo_auth
-import cookielib
+import urllib.request, urllib.parse, urllib.error, urllib.request, urllib.error, urllib.parse
+from bs4 import BeautifulSoup
+from . import cxdo_auth
+import http.cookiejar
 import logging
 import re
 import os
@@ -25,9 +25,9 @@ class AuthenticationException( Exception):
     pass
 
 def post_request(url, values):
-    data = urllib.urlencode(values)
-    req = urllib2.Request(url, data)
-    return urllib2.urlopen(req)
+    data = urllib.parse.urlencode(values)
+    req = urllib.request.Request(url, data)
+    return urllib.request.urlopen(req)
 
 class BCP(Bank):
     def login(self):
@@ -41,7 +41,7 @@ class BCP(Bank):
             self.authenticate(user, password)
 
     def get_page(self, url, parameters={}, allow_redirects=False):
-        d= urllib.urlencode(parameters)
+        d= urllib.parse.urlencode(parameters)
         f= self.opener.open(url, data=d)
         if not allow_redirects and f.geturl()!=url:
             raise RedirectedException("got "+f.geturl()+" instead of "+url)
@@ -52,10 +52,10 @@ class BCP(Bank):
 
     def load_session(self, file_present=True):
         logging.debug("loading cookie from file")
-        self.cookiejar= cookielib.LWPCookieJar( )
+        self.cookiejar= http.cookiejar.LWPCookieJar( )
         #if file_present:
         #    self.cookiejar.load( filename= self.cookie_file, ignore_discard=True)
-        self.opener= urllib2.build_opener( urllib2.HTTPCookieProcessor(self.cookiejar) )
+        self.opener= urllib.request.build_opener( urllib.request.HTTPCookieProcessor(self.cookiejar) )
 
     def save_session(self):
         logging.debug("saving cookie to file")
@@ -68,24 +68,24 @@ class BCP(Bank):
             html= self.get_page(MAINPAGE)
             return True
         except RedirectedException as e:
-            print e
+            print(e)
             return False
 
     def authenticate(self, user, password):
         logging.debug("authenticating...")
 
         html = self.get_page( LOGINSTARTPAGE, {"mlUsr": user}, True ) #needed to set
-        print html
+        print(html)
         # extract positions
         soup = BeautifulSoup(html)
         row = soup.find('tr', id="trid_1")
         chars = []
         for each in row.findAll('strong'):
             chars.append(each.string[0])
-        print chars
-        print self.info["pass"][int(chars[0])-1]
-        print self.info["pass"][int(chars[1])-1]
-        print self.info["pass"][int(chars[2])-1]
+        print(chars)
+        print(self.info["pass"][int(chars[0])-1])
+        print(self.info["pass"][int(chars[1])-1])
+        print(self.info["pass"][int(chars[2])-1])
         html = self.get_page(LOGINPAGE, {"onlyPwd":1, "_D:login":" ", "loginAux": self.info["user"], "_D:loginAux":" ", "dig1": self.info["pass"][int(chars[0])-1], "_D:dig1": " ", "dig2": self.info["pass"][int(chars[1])-1], "_D:dig2":" ", "dig3": self.info["pass"][int(chars[2])-1], "_D:dig3": " ","/bcp/cidadebcp/90/F9021_Login.submit2": "", "_D:/bcp/cidadebcp/90/F9021_Login.submit2": " ","x": 47, "y": 11}, True)
 
         if not self.is_authenticated():

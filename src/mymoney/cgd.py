@@ -1,34 +1,39 @@
 # -*- coding: utf-8 -*-
 
-from bank import Bank
-from account import Account
+from .bank import Bank
+from .account import Account
 
-import urllib, urllib2
-from BeautifulSoup import BeautifulSoup
-import cxdo_auth
-import cookielib
+import urllib.request, urllib.parse, urllib.error, urllib.request, urllib.error, urllib.parse
+from bs4 import BeautifulSoup
+from . import cxdo_auth
+import http.cookiejar
 import logging
 import re
 import os
 
 from datetime import date, timedelta
 
-CXDO_VERSION= "v56_8_0_WS_v5_123_1"
-LOGINSTARTPAGE= "https://caixadirecta.cgd.pt/CaixaDirecta/loginStart.do"
-LOGINPAGE= "https://caixadirecta.cgd.pt/CaixaDirecta/login.do"
-MAINPAGE= "https://caixadirecta.cgd.pt/CaixaDirecta/profile.do"
-ACCOUNTINDEX="https://caixadirecta.cgd.pt/CaixaDirecta/accountInfo.do"
-STATEMENT="https://caixadirecta.cgd.pt/CaixaDirecta/statement.do"
+CXDO_VERSION = "v56_8_0_WS_v5_123_1"
+LOGINSTARTPAGE = "https://caixadirecta.cgd.pt/CaixaDirecta/login.do"
+LOGINPAGE = "https://caixadirecta.cgd.pt/CaixaDirecta/login.do"
+MAINPAGE = "https://caixadirecta.cgd.pt/CaixaDirecta/profile.do"
+ACCOUNTINDEX ="https://caixadirecta.cgd.pt/CaixaDirecta/accountInfo.do"
+STATEMENT ="https://caixadirecta.cgd.pt/CaixaDirecta/statement.do"
 
-class RedirectedException( Exception ):
+
+class RedirectedException(Exception):
     pass
-class AuthenticationException( Exception):
+
+
+class AuthenticationException(Exception):
     pass
+
 
 def post_request(url, values):
-    data = urllib.urlencode(values)
-    req = urllib2.Request(url, data)
-    return urllib2.urlopen(req)
+    data = urllib.parse.urlencode(values)
+    req = urllib.request.Request(url, data)
+    return urllib.request.urlopen(req)
+
 
 class CGDCaixaDirecta(Bank):
     name = "CGD"
@@ -39,38 +44,40 @@ class CGDCaixaDirecta(Bank):
 
     def start(self, user, password, cookie_file=None):
         if cookie_file:
-            self.cookie_file= cookie_file
+            self.cookie_file = cookie_file
             self.load_session(os.path.isfile(cookie_file))
             if not self.is_authenticated():
                 logging.info("saved cookie session has expired")
                 self.authenticate(user, password)
 
     def get_page(self, url, parameters={}, allow_redirects=False):
-        d= urllib.urlencode(parameters)
-        f= self.opener.open(url, data=d)
+        d = urllib.parse.urlencode(parameters)
+        f = self.opener.open(url, data=d)
         if not allow_redirects and f.geturl()!=url:
             raise RedirectedException("got "+f.geturl()+" instead of "+url)
-        html= f.read()
+        html = f.read()
         #if not get_cxdo_version(html) == CXDO_VERSION:
             #logging.warn('CXDO site version differs from expected. got %r, expected %r', get_cxdo_version(html), CXDO_VERSION)
         return html
 
     def load_session(self, file_present=True):
         logging.debug("loading cookie from file")
-        self.cookiejar= cookielib.LWPCookieJar( )
+        self.cookiejar = http.cookiejar.LWPCookieJar()
         #if file_present:
         #    self.cookiejar.load( filename= self.cookie_file, ignore_discard=True)
-        self.opener= urllib2.build_opener( urllib2.HTTPCookieProcessor(self.cookiejar) )
+        self.opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(self.cookiejar))
 
     def save_session(self):
         logging.debug("saving cookie to file")
         if self.cookie_file is None:
-            raise Exception("Cookie filename was not specified on construction")
-        self.cookiejar.save( filename= self.cookie_file, ignore_discard=True)
+            raise Exception(
+                "Cookie filename was not specified on construction"
+            )
+        self.cookiejar.save(filename=self.cookie_file, ignore_discard=True)
 
     def is_authenticated(self):
         try:
-            html= self.get_page(MAINPAGE)
+            self.get_page(MAINPAGE)
             return True
         except RedirectedException:
             return False
@@ -92,12 +99,14 @@ class CGDCaixaDirecta(Bank):
             return True
 
         if valid_parameter(user) and valid_parameter(password):
-            l1_html= self.get_page( LOGINSTARTPAGE, {"USERNAME": user} ) #needed to set
-            auth_data= cxdo_auth.parameters(l1_html, user,password)
-            l2_html= self.get_page( LOGINPAGE, auth_data, allow_redirects=True)
+            l1_html = self.get_page(LOGINSTARTPAGE, {"USERNAME": user})
+            auth_data = cxdo_auth.parameters(l1_html, user, password)
+            self.get_page(LOGINPAGE, auth_data, allow_redirects=True)
 
         if not self.is_authenticated():
-            raise AuthenticationException("Could not authenticate with given data")
+            raise AuthenticationException(
+                "Could not authenticate with given data"
+            )
 
     def get_account_list(self):
         html = self.get_page(ACCOUNTINDEX)
@@ -111,14 +120,18 @@ class CGDCaixaDirecta(Bank):
     def get_account(self, number=0):
         return CGDCDAccount(number, self)
 
+
 class CGDCDAccount(Account):
     def __init__(self, number, bank):
         self.number = number
         self.bank = bank
-        self.set_account()        
+        self.set_account()
 
     def set_account(self):
-        self.html = self.bank.get_page(ACCOUNTINDEX, {"accountIndex": self.number, "changeActiveAccount" : 1})
+        self.html = self.bank.get_page(
+            ACCOUNTINDEX,
+            {"accountIndex": self.number, "changeActiveAccount": 1}
+        )
 
     def get_information(self):
         self.set_account()
@@ -142,7 +155,6 @@ class CGDCDAccount(Account):
                      "available": l[7].findAll('td')[3].string
                      }
 
-
     def get_balance(self):
         self.set_account()
         soup = BeautifulSoup(self.html)
@@ -150,7 +162,7 @@ class CGDCDAccount(Account):
         if l[1].findAll('td')[0].string == "Tipo de conta":
             return l[8].findAll('td')[3].string
         else:
-            return l[7].findAll('td')[3].string            
+            return l[7].findAll('td')[3].string
 
     def get_movements(self, start_date=(date.today()-timedelta(weeks=1)), end_date=date.today, limit=100):
         self.set_account()
@@ -165,14 +177,16 @@ class CGDCDAccount(Account):
                     res_inner.append(cell.string.strip())
                 elif cell.a:
                     # transaction id
-                    res_inner.append(re.findall("\d+",cell.a["onclick"])[0])
+                    res_inner.append(re.findall("\d+", cell.a["onclick"])[0])
                     if cell.a.string:
                         res_inner.append(cell.a.string.strip())
             res.append(res_inner)
         return res
 
+
 class CGDCaixaBanking(Bank):
     pass
+
 
 class CGDCBAccount(Account):
     pass

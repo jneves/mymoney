@@ -1,3 +1,8 @@
+# DEVELOPMENT ENVIRONMENT
+Dockerfile
+cookie.txt
+*.html
+
 # Emacs
 *~
 **/*~
@@ -5,28 +10,15 @@
 # Python
 *.py[co]
 
-# Packages
-*.egg
-*.egg-info
-dist
-build
-eggs
-parts
-bin
-var
-sdist
-develop-eggs
-.installed.cfg
+# Configuration files. Include *.json.sample instead
+*.json
 
-# Installer logs
-pip-log.txt
+# Files used for local testing
+test_*
 
-# Unit test / coverage reports
-.coverage
-.tox
+# Dev
+.vscode
+.devcontainer
 
-#Translations
-*.mo
-
-#Mr Developer
-.mr.developer.cfg
+# MacOS
+.DS_Store
